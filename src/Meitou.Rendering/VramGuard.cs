@@ -133,12 +133,16 @@ public sealed class VramGuard
     /// MB, against caches of gigabytes): refused only past <see cref="PriorityCeiling"/>, so the streaming and the caches give way first. A grant
     /// above <see cref="Ceiling"/> enters pressure (the caches evict and the ranges fall, which lowers the next frames' need).
     /// </summary>
-    public bool AllowsPriority(ulong bytes)
+    public bool AllowsPriority(ulong bytes) => AllowsPriority(bytes, 0);
+
+    /// <summary><see cref="AllowsPriority(ulong)"/> with <paramref name="pending"/> bytes the caller knows are on their way but are not in the memory in use yet (as
+    /// <see cref="Allows(ulong, ulong)"/>).</summary>
+    public bool AllowsPriority(ulong bytes, ulong pending)
     {
         double now = clock();
         if (now - lastSample >= FreshSeconds) Sample(now);
         if (budget <= 0) return true;
-        long wanted = used + reserved + (long)bytes;
+        long wanted = used + reserved + (long)pending + (long)bytes;
         if (wanted > PriorityCeiling * budget)
         {
             Refusals++;

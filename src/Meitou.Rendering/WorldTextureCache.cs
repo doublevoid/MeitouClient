@@ -184,6 +184,13 @@ public sealed unsafe class WorldTextureCache : IDisposable
     /// first, whatever the high-water mark.</summary>
     public VramGuard? Guard { get; set; }
     public double GuardIdleSeconds { get; set; } = 2;
+    /// <summary>
+    /// The textures a frame is wrong without (a character's skin and gear: tens of MB against caches of gigabytes): their loads go on under the guard's pressure
+    /// and are refused only past <see cref="VramGuard.PriorityCeiling"/> (<see cref="VramGuard.AllowsPriority(ulong, ulong)"/>), so the world's caches give way first. Without
+    /// it a card whose use never falls under the guard's low mark (a 6 GB laptop card at the default settings) would keep every character on the stand-in for the whole session.
+    /// The idle eviction under pressure still applies to them.
+    /// </summary>
+    public bool Priority { get; init; }
 
     public string Describe() => $"{ResidentCount} textures {ResidentBytes / 1048576.0:0} MB ({Unloads} unloaded, {Reloads} reloaded so far" +
         (Mips.Enabled ? $"; mip streaming: {Math.Max(UnstreamedBytes - ResidentBytes, 0) / 1048576.0:0} MB less than every mip, {Refined} refined, {Coarsened} coarsened)" : ")");
@@ -219,16 +226,17 @@ public sealed unsafe class WorldTextureCache : IDisposable
         return t;
     }
 
-    /// <summary>Whether the guard lets this texture's image be made now: not under pressure, and the file's size (the image is no larger) fits the room left (<see cref="VramGuard.Allows"/>).</summary>
+    /// <summary>Whether the guard lets this texture's image be made now: not under pressure (a <see cref="Priority"/> cache loads under it), and the file's size (the image is no larger)
+    /// fits the room left (<see cref="VramGuard.Allows(ulong, ulong)"/>, or the priority ceiling).</summary>
     bool MayStart(WorldTexture t)
     {
         if (Guard is not { } guard) return true;
-        if (!guard.Streaming) return false;
+        if (!Priority && !guard.Streaming) return false;
         long bytes;
         try { bytes = new FileInfo(t.Path!).Length; }
         catch (IOException) { bytes = 4 << 20; }
         // What is loading is not in the guard's sample yet (the image is made when its decode lands): it counts against the room too.
-        if (!guard.Allows((ulong)bytes, (ulong)inFlight)) return false;
+        if (!(Priority ? guard.AllowsPriority((ulong)bytes, (ulong)inFlight) : guard.Allows((ulong)bytes, (ulong)inFlight))) return false;
         (t.InFlight, inFlight) = (bytes, inFlight + bytes);
         return true;
     }
