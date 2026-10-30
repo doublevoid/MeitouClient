@@ -156,11 +156,12 @@ public static class BuildingSave
         }
         var townHands = WriteTowns(game, world, playerFactionId, seed);
         if (reg.Count == 0) return townHands;
-        foreach (var site in reg.All.Where(s => s.LevelPlacement is null)) WriteSite(game, site, playerFactionId, seed, townHands.GetValueOrDefault(site.Town, Hand.Null), world.Fixtures);
+        // A nest's debris is made again from the seed when the nest loads (BuildSite.Debris): not written.
+        foreach (var site in reg.All.Where(s => s.LevelPlacement is null && !s.Debris)) WriteSite(game, site, playerFactionId, seed, townHands.GetValueOrDefault(site.Town, Hand.Null), world.Fixtures);
 
         // Parents last: they may be sites written above.
         var states = HeldSave.BuildingStates(game);
-        foreach (var site in reg.All.Where(s => s.LevelPlacement is null))
+        foreach (var site in reg.All.Where(s => s.LevelPlacement is null && !s.Debris))
         {
             if (!states.TryGetValue(BuildingKey.Of(site.Zone, site.Id), out var state)) continue;
             if (site.Parent is { } parent)

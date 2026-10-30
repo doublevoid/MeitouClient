@@ -57,6 +57,9 @@ public sealed partial class PopulationSystem : ITickSystem, IDisposable
         public int Made;
         /// <summary>Replaced, its new residents not made yet (the original's <c>updatedTownOverrides</c>; not saved, as there).</summary>
         public bool Repopulate;
+        /// <summary>A loaded nest's debris: the ids of its <see cref="Construction.BuildSite"/>s and of its ground items (removed with the nest).</summary>
+        public readonly List<string> DebrisBuildings = [];
+        public readonly List<int> DebrisItems = [];
     }
 
     public PopulationSystem(PopulationData data, PopulationSettings? settings = null)
@@ -506,7 +509,7 @@ public sealed partial class PopulationSystem : ITickSystem, IDisposable
         Reset(state);
     }
 
-    /// <summary>A wild site leaves the world: its squads are removed (the population makes them again).</summary>
+    /// <summary>A wild site leaves the world: its squads are removed (the population makes them again), and a nest's debris with them.</summary>
     void Drop(World world, SiteState state)
     {
         var table = world.Characters;
@@ -517,12 +520,17 @@ public sealed partial class PopulationSystem : ITickSystem, IDisposable
             foreach (var m in squad.Members) RemoveMember(world, m);
             world.Squads.Remove(id);
         }
+        foreach (string id in state.DebrisBuildings)
+            if (world.Buildings.Find(id) is { } site) world.Buildings.Remove(site);
+        foreach (int id in state.DebrisItems) world.GroundItems.Take(id);
         Reset(state);
     }
 
     static void Reset(SiteState state)
     {
         state.Squads.Clear();
+        state.DebrisBuildings.Clear();
+        state.DebrisItems.Clear();
         state.Pending = false;
         state.Made = 0;
         state.Status = SiteStatus.Unloaded;

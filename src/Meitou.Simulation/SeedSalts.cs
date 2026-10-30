@@ -27,6 +27,8 @@ internal static class SeedSalts
     public const ulong NestSquad = 0x4E57UL;
     /// <summary>XORed into the key of the layout of the nests of a biome group (which nest, which cell, which spots).</summary>
     public const ulong NestLayout = 0x1A70UL;
+    /// <summary>XORed into the key of a nest's debris layout (its camp's buildings and items), and the counter base of its rolls.</summary>
+    public const ulong NestDebris = 0x4E5DUL, NestDebrisRoll = 3000;
 
     /// <summary>Counter of the roll that picks the template of a homeless squad.</summary>
     public const ulong HomelessPick = 6;

@@ -152,10 +152,13 @@ sealed partial class GameHost
             ? level with { Key = site.Id, WorldY = site.Position.Y, DestroyedOverride = site.Destroyed }
             : new(WorldLayout.ZoneOf(site.Position.X, site.Position.Z), site.Id, site.Record, site.Position, site.Rotation, null, site.Position.Y) { Key = site.Id, Contained = site.Parent is not null, ContainerId = site.Parent };
 
-    /// <summary>Navmesh membership (engine reading of the Observed rebuild on placing): <c>path mode</c> not 0 and the building complete or without a <c>build threshold</c>.</summary>
+    /// <summary>
+    /// Navmesh membership (engine reading of the Observed rebuild on placing): <c>path mode</c> not 0 and the building complete or without a <c>build threshold</c>. A nest's debris
+    /// (<see cref="BuildingSnapshot.Debris"/>) never: fcs.def's <c>debris building</c> "must have no navmesh effect", and a camp's twenty pieces would rebuild its zones twenty times.
+    /// </summary>
     void AddToNavmesh(BuildingSnapshot site, BuildingPlacement placement)
     {
-        if (nav is null || navBuildings.Contains(site.Id) || !BuildData().TryGetValue(site.Record, out var data)) return;
+        if (nav is null || site.Debris || navBuildings.Contains(site.Id) || !BuildData().TryGetValue(site.Record, out var data)) return;
         if (data.PathMode == 0 || site.LevelPlacement is null && !site.Complete && data.BuildThreshold != 0) return;
         navBuildings.Add(site.Id);
         nav.AddRuntimeBuilding(placement);   // the zones loaded are built again; UpdateNav sends the RepathCommand when one is ready

@@ -30,6 +30,8 @@ public sealed record GroundItem(int Id, ItemInstance Item, Vector3 Position, Qua
     public int OwnedBy { get; init; } = -1;
     /// <summary>The stump a severed limb fell from (null: none, e.g. any other item).</summary>
     public FallSource? Fall { get; init; }
+    /// <summary>A nest's debris item, laid out from the seed when the nest loads (<see cref="PopulationSystem"/>): not saved, not counted against <see cref="GroundItems.Limit"/>, removed with its nest.</summary>
+    public bool Debris { get; init; }
 }
 
 /// <summary>
@@ -65,7 +67,15 @@ public sealed class GroundItems
         Revision++;
     }
 
-    static bool Capped(GroundItem i) => i.Item.Saved is null && i.Slot is null;
+    static bool Capped(GroundItem i) => i.Item.Saved is null && i.Slot is null && !i.Debris;
+
+    /// <summary>Lays a nest's debris item (<see cref="GroundItem.Debris"/>) on the ground, turned <paramref name="yaw"/> about Y and laid flat as a dropped one (no limit); returns its id.</summary>
+    public int Scatter(ItemInstance item, Vector3 position, float yaw)
+    {
+        items.Add(new GroundItem(nextId, item, position, Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw)) { Dropped = true, Debris = true });
+        Revision++;
+        return nextId++;
+    }
 
     /// <summary>
     /// Lays a slot's item (<see cref="ItemSlots"/>) on the ground, turned <paramref name="yaw"/> about Y and laid flat as a dropped one (no limit while it keeps

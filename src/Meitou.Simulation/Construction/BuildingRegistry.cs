@@ -62,6 +62,11 @@ public sealed class BuildSite
     public int BuilderCounter { get; set; }
     /// <summary>A builder has taken it apart this tick (derived; the snapshot's flag).</summary>
     public bool Dismantling { get; set; }
+    /// <summary>
+    /// A nest's debris building (<see cref="PopulationSystem"/> "nest debris", docs/game/factions-squads-towns.md "Nests"): complete from the start, laid out from the seed when its nest
+    /// loads and removed when it unloads, so not saved; fcs.def says such a building has no navmesh effect, so the host keeps it out of the navmesh. Its cages and lamps register as a town's.
+    /// </summary>
+    public bool Debris { get; init; }
     /// <summary>The zone the site stands in (its id and save file).</summary>
     public ZoneCoordinate Zone => WorldLayout.ZoneOf(Position.X, Position.Z);
 
@@ -285,7 +290,7 @@ public sealed partial class BuildingRegistry
         {
             var materials = new MaterialView[s.Materials.Length];
             for (int i = 0; i < materials.Length; i++) materials[i] = new MaterialView(s.Materials[i].Item, s.Materials[i].Required, s.Materials[i].Delivered);
-            list.Add(new BuildingSnapshot(s.Id, s.Record, s.Position, s.Rotation, s.Floor, s.Parent, s.Owner, s.Progress, s.Target, materials, s.Complete, s.Paused) { Dismantling = s.Dismantling, WallParent = s.WallParent, Public = s.Public, TownName = s.LevelTownName ?? FindTown(s.Town)?.Name, LevelPlacement = s.LevelPlacement, Destroyed = s.Destroyed, Name = s.Name });
+            list.Add(new BuildingSnapshot(s.Id, s.Record, s.Position, s.Rotation, s.Floor, s.Parent, s.Owner, s.Progress, s.Target, materials, s.Complete, s.Paused) { Dismantling = s.Dismantling, WallParent = s.WallParent, Public = s.Public, TownName = s.LevelTownName ?? FindTown(s.Town)?.Name, LevelPlacement = s.LevelPlacement, Debris = s.Debris, Destroyed = s.Destroyed, Name = s.Name });
         }
         publishedVersion = Version;
         return published = list;

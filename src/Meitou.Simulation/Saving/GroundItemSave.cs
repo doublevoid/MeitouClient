@@ -52,6 +52,7 @@ public static class GroundItemSave
         var byZone = new Dictionary<ZoneCoordinate, List<GroundItem>>();
         foreach (var g in world.GroundItems.All)
         {
+            if (g.Debris) continue;   // a nest's debris is made again from the seed when the nest loads
             var z = WorldLayout.ZoneOf(g.Position.X, g.Position.Z);
             if (!byZone.TryGetValue(z, out var list)) byZone[z] = list = [];
             list.Add(g);

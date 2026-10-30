@@ -395,7 +395,9 @@ Implemented (`PopulationRoaming.cs`):
     An entry must fit the free budget, except while the pool is empty with more than 4 free (the Fog Deathyard's `Fog hive nest`, expected
     size 1 + (12 + 24) / 2 = 19, against a budget of floor(0.7 × 25) = 17). A roll that finds no entry (all weights 0 or none fits the free budget) with no squad of the nest left alive sets `ded` for good, `tod`,
     and posts "<nest> has been wiped out" (engine choice: "intact" = someone alive); so does a pool spent below one member with no one alive. A squad that lost someone takes its living out of `pop2`
-    when the nest unloads. Dead squads lying there still count against the template weights. **Observed** (headless): a swamp raptor nest
+    when the nest unloads. Dead squads lying there still count against the template weights. A nest's camp (its `debris building`s and `debris` items,
+    [nest debris](game/factions-squads-towns.md#off-screen-world)) is laid out from the seed with its first squads and removed with them; its buildings are complete
+    `BuildSite`s of the nest's faction (`BuildSite.Debris`: never saved, never in the navmesh), so a fogman nest's prisoner poles hold its captives. **Observed** (headless): a swamp raptor nest
     (N 20, pool 14) refills an 8-duck squad after its two squads die; drained to 1 with all dead it is wiped out and saved with `ded`, `tod`,
     `pop2` 1.008, `popd2` 20.
   - **Homeless squads** (`PopulationHomeless.cs`; [original rules](game/factions-squads-towns.md#off-screen-world)): every 2 s a squad whose

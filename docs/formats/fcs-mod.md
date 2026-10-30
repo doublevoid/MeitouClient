@@ -1,5 +1,8 @@
 # FCS base/mod data
 
+Field names, defaults and the editor's one-line description of every field per record type are in the game's `fcs.def` (plain text, next to the
+executable): the first place to look up what a value triple means (e.g. TOWN `debris building`).
+
 **Verified** FcsRoundTripTests: four base files read/write byte-identically. FCS GameData/Item
 load/save supplies editor format facts; native Kenshi loader is authoritative where behaviour
 differs. Little-endian; strings=int32 UTF-8 byte count+bytes. Strict reader rejects invalid UTF-8;

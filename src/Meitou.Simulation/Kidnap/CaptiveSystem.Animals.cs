@@ -17,19 +17,23 @@ public sealed partial class CaptiveSystem
 
     /// <summary>
     /// <c>AI::findFogmanWorshipTarget</c> (<c>FUN_1408ce880</c>): in the town nearest the worshipper, the first cage (list order) whose occupant is being eaten. Null: none.
+    /// The original's nests are towns of its list; Meitou's are not sites, so a cage of no site (a nest's debris pole, <see cref="Construction.BuildSite.Debris"/>) that stands nearer
+    /// than the nearest placed town counts as that nearest town's.
     /// </summary>
     Fixture? WorshipTarget(World world, int slot)
     {
         var at = world.Characters.Next[slot].Position;
+        var here = new Vector2(at.X, at.Z);
         int site = -1;
         float best = float.MaxValue;
         for (int s = 0; s < data.Sites.Count; s++)
         {
-            float d = Vector2.DistanceSquared(new Vector2(at.X, at.Z), new Vector2(data.Sites[s].Position.X, data.Sites[s].Position.Z));
+            float d = Vector2.DistanceSquared(here, new Vector2(data.Sites[s].Position.X, data.Sites[s].Position.Z));
             if (d < best) (best, site) = (d, s);
         }
-        if (site < 0) return null;
-        foreach (var cage in CagesOf(world, site))
+        IEnumerable<Fixture> cages = site < 0 ? [] : CagesOf(world, site);
+        cages = cages.Concat(world.Fixtures.All.Where(f => f.Kind == FixtureKind.Cage && f.Site < 0 && Vector2.DistanceSquared(here, new Vector2(f.Position.X, f.Position.Z)) < best));
+        foreach (var cage in cages)
             if (OccupantSlot(world, cage) >= 0 && jobs.Any(j => j.Kind == CaptiveJobKind.Eat && j.Captive == cage.Occupant && j.Phase == CaptivePhase.Work)) return cage;
         return null;
     }

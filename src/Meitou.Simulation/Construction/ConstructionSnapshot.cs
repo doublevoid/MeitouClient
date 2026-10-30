@@ -23,4 +23,6 @@ public sealed record BuildingSnapshot(string Id, string Record, Vector3 Position
     /// <summary>Open to the public (<see cref="BuildSite.Public"/>), and the name of the player town it belongs to (null: none).</summary>
     public bool Public { get; init; } = true;
     public string? TownName { get; init; }
+    /// <summary>A nest's debris building (<see cref="BuildSite.Debris"/>): the host keeps it out of the navmesh.</summary>
+    public bool Debris { get; init; }
 }
