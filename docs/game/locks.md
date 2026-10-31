@@ -349,8 +349,8 @@ the others start empty but for the town's [artifacts](economy.md#artifacts) (wha
 character to one (`OpenContainerOrder`, reach 20) and opens a storage window at the left edge, vertically centred (as a machine's, [simulation](../simulation.md)), staying open until the player closes it (asking for the same container again reopens it, also while paused); the character's inventory opens beside it for an order-driven container and not when a storage or rock is merely selected (the original has no walk-away test; an opener who is down or gone closes it); the player's own locked one refuses
 ("It's locked."). Another faction's: pointer `lockpick` while locked, else `scavenge` (`search` for own or unowned ones); a locked one with Alt sends the walker to pick it (76 PICK_LOCK), without Alt "Hold down the ALT key to pick the lock." and a walk to it, as the original's right-click path (`FUN_1407fc6e0`); what is taken from it is marked stolen from its owner after the pending crime and the steal roll (`CrimeSystem.Steal`, [simulation](../simulation.md#crimes-and-bounties); caught, the item stays). A building shop's stock containers each show their own part of the shop's stock (a rectangle of it, `Shop.ForBuilding`, `PlayerSystem.GridOf`; engine choice for where the original's containers keep it), its other containers their own contents: taking from a stock one is the theft of any other faction's container (the item is marked stolen from the container's owner), putting into it is refused ("That stock is the shop's."); without Alt another faction's gets the original's "Hold down the ALT key to steal items" and a walk, the menu's Loot (and Alt) steals at once. Items move with
 `PutInMachine` / `TakeFromMachine` addressed by the fixture id, within 60 of it ("Out of trading range.", [economy](economy.md#trading-range)). Contents are saved in Meitou's own GAMESTATE_BUILDING string `meitou container <layout index>` (the index of the fixture id; JSON list of items with cell, quality, level,
-material, maker, charge, the unique flag when set and a bag's contents; absent while empty; `Locks/ContainerSave.cs`), the original's interior ids being unmapped. Like the locks, only into building states the
-save already holds (zones visited), and the original ignores the key (**Unverified**). A lock on a stored shackle and prosthetic wear are not kept.
+material, maker, charge, the unique flag when set, a shackle's lock (`Lk`: the four item lock keys below, same load rule) and a bag's contents; absent while empty; `Locks/ContainerSave.cs`), the original's interior ids being unmapped. Like the locks, only into building states the
+save already holds (zones visited), and the original ignores the key (**Unverified**). Prosthetic wear is not kept there.
 
 ## Player orders on locks
 
@@ -368,7 +368,8 @@ suffix `i`: `state<i>`, `doa<i>`, `broken<i>`, `gatecode<i>`, `wants lock<i>`, a
 A machine (UseableStuff, e.g. a safe) writes its own `broken` after its base class's lock keys (`StorageBuilding::vfunc_17` `FUN_1402a14b0` calls `DoorStuff::vfunc_17` first,
 **Observed** by decompile), so the machine's flag wins the shared key and is read back into both; Meitou writes in the same order (`BuildingSave`, then `MachineSave`).
 Shackles: the item's INVENTORY_ITEM_STATE record carries the same four keys (`LockedArmour` vfunc 75 writes, 76 reads through
-`uses_locked_hardness`, **Observed**), with the same load rule.
+`uses_locked_hardness`, **Observed**), with the same load rule, worn or not (the writer is the item's own). Meitou writes them on every item with a lock: a character's inventory, a machine's
+grid and a loose item (INVENTORY_ITEM_STATE / ITEM records) and its own container and shop JSON (`Lk`).
 
 ## Unknown
 
