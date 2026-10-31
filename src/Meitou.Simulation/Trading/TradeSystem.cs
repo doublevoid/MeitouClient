@@ -128,6 +128,7 @@ public sealed class TradeSystem : ITickSystem, ITradeSource
     bool open, traderWandered;
     TradeSession session = new();
     long approachUntil;
+    readonly WalkUp walkUp = new();
     TradeView? view;
 
     public TradeSystem(PopulationData data, TradeSettings? settings = null)
@@ -163,7 +164,7 @@ public sealed class TradeSystem : ITickSystem, ITradeSource
                         break;
                     }
                     Hold(world, t);
-                    if (!InReach(world, c, t)) world.Defer(new MoveOrder([customer], world.Characters.Next[t].Position) { Tick = world.Tick + 1 });
+                    if (!InReach(world, c, t)) walkUp.Start(world, customer, world.Characters.Next[t].Position);
                     break;
                 case CloseTrade:
                     Close(world);
@@ -193,7 +194,12 @@ public sealed class TradeSystem : ITickSystem, ITradeSource
                 Hold(world, t);
             }
             else if (open || world.Tick >= approachUntil) Close(world);   // walked away, or never arrived
-            else Hold(world, t);
+            else
+            {
+                // The customer keeps heading for the trader as it moves; the player ordering the customer elsewhere drops the trade.
+                Hold(world, t);
+                if (!walkUp.Step(world, c, t, Settings.Range)) Close(world);
+            }
         }
         RefreshView(world);
     }
@@ -248,6 +254,7 @@ public sealed class TradeSystem : ITickSystem, ITradeSource
             TaskStart.Become(world, t, CharacterTask.Wander, Meitou.Data.Gameplay.Ai.TaskType.WANDERER, TaskSource.Npc);
         customer = trader = CharacterId.None;
         open = traderWandered = false;
+        walkUp.Clear();
         view = null;
     }
 
