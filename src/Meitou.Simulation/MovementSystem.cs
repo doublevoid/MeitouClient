@@ -118,6 +118,8 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     /// and the order (engine choice: from a slightly different spot the path can start elsewhere, docs/game/pathfinding.md "Own builder").
     /// </summary>
     public const int BlockedRepathLimit = 3;
+    /// <summary>How far (units) from where it was last stopped a walker must reach a waypoint for <see cref="BlockedRepathLimit"/>'s count to start again (engine choice: half <see cref="ArriveRadius"/>).</summary>
+    public const float BlockedProgress = ArriveRadius * 0.5f;
 
     public PathService Paths { get; } = paths;
 
@@ -826,7 +828,9 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                     if (reached)
                     {
                         n.PathCursor++;
-                        if (cold.BlockedRepaths != 0) cold.BlockedRepaths = 0;
+                        // Only a waypoint reached away from where it was last stopped resets the count: a new path's first point is where the walker stands, so reaching
+                        // it is no progress, and a walker stopped on its very next step would ask again for good (engine choice).
+                        if (cold.BlockedRepaths != 0 && Vector2.DistanceSquared(new Vector2(p.Position.X, p.Position.Z), cold.BlockedAt) > BlockedProgress * BlockedProgress) cold.BlockedRepaths = 0;
                         if (last) finished = true;
                     }
                 }
@@ -989,6 +993,7 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                 {
                     // Blocked on the provisional part of a long route (the terrain-only route met a wall or a building): stand and ask again.
                     // Blocked on its navmesh part: ask again from where it stands a few times before giving up.
+                    if (n.PathCursor < cold.PathExact) cold.BlockedAt = new Vector2(p.Position.X, p.Position.Z);
                     if (n.PathCursor >= cold.PathExact ? ++cold.ProvisionalBlocked <= ProvisionalBlockedLimit : ++cold.BlockedRepaths <= BlockedRepathLimit)
                     {
                         speed = 0;

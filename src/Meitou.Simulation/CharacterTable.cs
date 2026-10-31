@@ -91,8 +91,13 @@ public sealed class CharacterCold
     public long ProvisionalRepathTick { get; set; }
     /// <summary>Times the walker was stopped on the provisional part since a long route last gained a navmesh part (<see cref="MovementSystem.ProvisionalBlockedLimit"/>).</summary>
     public int ProvisionalBlocked { get; set; }
-    /// <summary>Times the walker was stopped on the navmesh part of its path since it last reached a waypoint or was given an order (<see cref="MovementSystem.BlockedRepathLimit"/>).</summary>
+    /// <summary>
+    /// Times the walker was stopped on the navmesh part of its path since it last reached a waypoint away from where it was last stopped (<see cref="BlockedAt"/>), or was given
+    /// an order (<see cref="MovementSystem.BlockedRepathLimit"/>).
+    /// </summary>
     public int BlockedRepaths { get; set; }
+    /// <summary>Where (X/Z) the walker was last stopped on the navmesh part of its path; not saved or hashed.</summary>
+    public System.Numerics.Vector2 BlockedAt { get; set; }
     /// <summary>The path request in flight, so an answer to an older one is ignored.</summary>
     public long PathRequest { get; set; }
     /// <summary>
