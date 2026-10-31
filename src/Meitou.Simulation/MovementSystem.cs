@@ -816,7 +816,9 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                     last = n.PathCursor == cold.Path.Length - 1;
                     closing = last && cold.ArriveWithin > 0 && dist <= ArriveRadius;
                     // The last point taken by another body: the walker stops short instead of pushing in (the original's agent, FUN_1401476f0).
-                    bool occupied = last && cold.ArriveWithin <= 0 && dist <= ArriveRadius && GoalOccupied(world, i, waypoint);
+                    bool occupied = last && cold.ArriveWithin <= 0 && dist <= ArriveRadius && GoalOccupied(world, i, waypoint)
+                        // A corner another body stands on is passed from half the arrive radius (engine choice): the walker cannot come within CornerReach of it.
+                        || !last && dist <= ArriveRadius * 0.5f && GoalOccupied(world, i, waypoint);
                     reached = occupied || dist <= (last ? cold.ArriveWithin > 0 ? cold.ArriveWithin : FinalArrive : ArriveRadius * 0.5f)
                         && (last || dist <= CornerReach || CanCut(walk, p.Position, cold.Path[n.PathCursor + 1]))
                         // A corner the agent's velocity has carried past (it turns at its acceleration, not at once) is behind it, not circled.

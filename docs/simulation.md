@@ -506,7 +506,9 @@ character takes half the overlap with each separation neighbour's last position 
 A path walker out of a fight whose remaining slide round a touched body is under `PassShare` 0.25 of its speed slides to its own right at that share, so walkers meeting nose to nose pass on opposite sides.
 **Observed** (issue #138, scratch headless run of the Hub with its population on the real navmesh): paths pulled tight through the same corners put two walkers going opposite ways on
 one line (0.03 apart sideways, (-51678, 1660, 3745)); with nothing left to slide by, both stood 57 s until their AI picked new goals. On open ground (scratch) such a pair, or a walker
-straight at a stander, never passed (the stander was shoved along ahead); with the rule both pass in 1.4..2.1 s, as pairs 0.3 or more apart always did. A walker
+straight at a stander, never passed (the stander was shoved along ahead); with the rule both pass in 1.4..2.1 s, as pairs 0.3 or more apart always did.
+A path corner another body covers counts as reached within 5 (half `ArriveRadius`; engine choice, like the covered last point): **Observed** (same scratch run, (-49209, 1489, 209)) a walker
+3 from a corner a stander covered could neither come within `CornerReach` nor cut it, and stood 80 s. A walker
 shoves a stander aside; one in a bed or cage does not give; a sitter (resting or on a used seat, no path) is
 never moved, by contact or separation (**Observed**: the original pushes no sitter), and is not solid (walkers steer past), lying and carried bodies are not in the way, a character closing on its spot
 is not stopped, and an unwalkable result falls back to its own step.
