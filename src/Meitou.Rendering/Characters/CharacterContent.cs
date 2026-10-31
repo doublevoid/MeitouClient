@@ -213,7 +213,7 @@ internal sealed class CharacterContent : IDisposable
         this.assets = assets;
         this.db = db;
         resolver = new MaterialResolver(db, OgreMaterialLibrary.LoadConfigured(install, out _), assets);
-        Textures = new WorldTextureCache(gpu, assets, "character textures");
+        Textures = new WorldTextureCache(gpu, assets, "character textures") { Priority = true };   // loaded under the memory guard's pressure too: a character without its skin is wrong anywhere on the screen
         Morphs = new MorphArena(gpu);
         Materials = new CharacterMaterialTable(gpu);
         Rigs = rigs ?? CreateRigs(db, assets);

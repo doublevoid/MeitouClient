@@ -33,6 +33,7 @@ responsive. On Wayland the window is shown and its first configure taken before 
 preserve world on failure. Gameplay warm-up waits for nearby population, terrain, scenery, character
 assets and used textures (including deferred loads), then <40ms frames for0.5s (max5s for frame pacing).
 After 5s of continuous `VramGuard` pressure, content it holds back is no longer waited for (it cannot load until the use falls).
+Character textures (skins, gear, the icons' and portraits') are a priority cache (`WorldTextureCache.Priority`): they load under pressure up to the guard's priority ceiling, since on a card whose use never falls back under the low mark (a 6 GB laptop card, #135) they would otherwise stay on the white stand-in all session.
 A game's warm-up waits only for the characters within 3000 units of the camera's focus (`CharacterRenderer.LoadingFocus`, `LoadingReach`); the rest are prepared once
 the screen lifts. The original's loaded zones (the camera's 3 x 3 block) can hold hundreds of NPCs, whose meshes' generated levels are built once and then read from a disk
 cache ([character-renderer](character-renderer.md#content-lod-and-memory)). **Observed** (a Great Desert save near Heng, RTX 4090): 479 looks pending and a 130 s wait before this rule, 35 and 40 s with it.
