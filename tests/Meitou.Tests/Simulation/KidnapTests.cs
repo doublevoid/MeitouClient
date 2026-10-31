@@ -265,8 +265,9 @@ public class KidnapInstallTests(ITestOutputHelper output)
         {
             set = StandardSystems.Build(data, walk, new StandardSystemOptions
             {
-                Parts = StandardParts.Population | StandardParts.Player | StandardParts.Pursuit | StandardParts.Movement | StandardParts.Body | StandardParts.Combat | StandardParts.Retaliation
-                    | StandardParts.FirstAid | StandardParts.Aggro | StandardParts.Flee | StandardParts.Carry | StandardParts.Crime,
+                // Ai: the raiders fight through their combat goals (campaign squads get engine-run minds, AiSystem.EngineMinds); without it nobody is lifted.
+                Parts = StandardParts.Population | StandardParts.Player | StandardParts.Ai | StandardParts.Pursuit | StandardParts.Movement | StandardParts.Body | StandardParts.Combat
+                    | StandardParts.Retaliation | StandardParts.FirstAid | StandardParts.Aggro | StandardParts.Flee | StandardParts.Carry | StandardParts.Crime,
                 SynchronousPaths = true,
                 Population = settings,
                 Kidnap = new KidnapSettings { RecordLog = true },
