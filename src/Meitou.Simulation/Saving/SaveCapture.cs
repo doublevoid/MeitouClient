@@ -453,7 +453,11 @@ public static partial class SaveCapture
             SlaveSave.Write(g, cold, data);
             DialogueSave.Write(g, cold);
             if (orders) Orders.Write(g, cold);
-            if (orders && sc.Ai is { } ai) PermaJobSave.Write(ai, cold, world.Buildings, buildings, who => world.Characters.TryResolveNext(who, out int target) && world.Characters.Cold(target)?.Save is { } link2 ? link2.Source.Handle : Hand.Null);
+            if (orders && sc.Ai is { } ai)
+            {
+                PermaJobSave.Write(ai, cold, world.Buildings, buildings, who => world.Characters.TryResolveNext(who, out int target) && world.Characters.Cold(target)?.Save is { } link2 ? link2.Source.Handle : Hand.Null);
+                HaulSave.Write(ai, cold);
+            }
             if (orders && sc.Ai is { } queueAi)
                 OrderSave.Write(queueAi, cold, world, buildings, (record, prefix, who) =>
                 {

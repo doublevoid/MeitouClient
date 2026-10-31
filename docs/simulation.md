@@ -1401,7 +1401,11 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   carried item the bench crafts, off the same way. Engine choices (the original's rule is
   [Unknown](game/buildings-production.md#hauling)): storage within `HaulRange` 3000 of the machine, ties
   by site id, a fetch takes what the inputs have room for, crafted items count by record whatever their quality or model,
-  items holding an inventory (backpacks) are never taken; the trip is not saved.
+  items holding an inventory (backpacks) are never taken. A save keeps what the hauler carries (its inventory) and the
+  operator's leg ([save keys](formats/save.md#order-queue)); after a load, the operator's next start on that machine heads
+  straight for the saved storage while it still carries what the machine makes, or for the saved source while an input has
+  room for the fetched item; otherwise it walks to the machine, which sends it off again. A Haul trip (124, the ditch) is
+  not saved: it is derived again when its job restarts, carried items first.
 - **Automatic machines** (`MachineData.IsAutomatic`, raw `max operators` 0; [facts](game/buildings-production.md#production)) produce
   every tick with nobody at them at s = 1 (producers only: refineries, mines, auto-looms, campfires), and their power demand is full. A character
   operating one (job 152, or the quick order) does not work it: it only hauls as above, every round whatever `AutoHaul` says.
@@ -1464,7 +1468,7 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   - Engine choices: the re-ask period; the injury test, the ranges, a bed's clip (`sleeponfloor`) and a seat's facing (its own, not the table it faces).
   - Saves: GAMESTATE_AI `pjob<i>` / `pjobT<i>` / `jobs` as the original, plus `meitou pjob<i>` (the site id) for a building the handle cannot
     name; the older `meitou jobs enabled` is read, not written; `chase mode` is written and read as the switch. The squad AI options are the
-    CAMERA bools ([squad AI options](game/ai-tasks.md#squad-ai-options)). A job's trip is not saved.
+    CAMERA bools ([squad AI options](game/ai-tasks.md#squad-ai-options)). A job's trip is not saved except an operator's haul leg (`meitou haul*`, Hauling above).
 - **Squad AI options** (`PlayerState.SquadAi`, the overview's AI tab, defaults as the owner's saves): Ditch, Sleep, Sit above; Heal Allies
   (the medic jobs take allied factions' patients scoring ≥ 0.1), Help Allies (`RetaliationSystem.JoinFight`: the fighters of allied factions count in
   goal 15's finder, their weight squared, [precedence](game/ai-tasks.md#precedence)), Rescue Allies (above), Share Food (`FeedSystem`: a player character with no food takes it from a squad mate's backpack within 200,

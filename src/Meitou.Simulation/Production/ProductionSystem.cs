@@ -468,6 +468,7 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
         var m = Ensure(world, site)!;
         if (request.Task == CharacterTask.Haul) StartHaulTrip(world, slot, site, m, ditch: request.Row == TaskType.DITCH_ALL_RESOURCES);
         else Begin(world, slot, site, m);
+        world.Characters.Cold(slot)!.SavedHaul = null;
     }
 
     /// <summary>An operator, hauler or prospector that another task replaces or the Stop order ends lets go of its machine, trip or progress (the task it goes back to is the new start's).</summary>
@@ -505,7 +506,8 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
         cold.Operating = false;
         cold.HaulTo = null;
         var goal = GoalOf(world, site, m);
-        if (!AtSite(n, site, m)) WalkToSite(ref n, cold, site, goal);
+        if (Resumed(world, cold, site.Id, m) is { } leg) { if (!AtSite(n, leg.Site, leg.Machine)) WalkToSite(ref n, cold, leg.Site, GoalOf(world, leg.Site, leg.Machine)); }
+        else if (!AtSite(n, site, m)) WalkToSite(ref n, cold, site, goal);
         sweep = true;
     }
 

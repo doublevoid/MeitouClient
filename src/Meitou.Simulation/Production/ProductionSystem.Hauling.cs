@@ -60,6 +60,18 @@ public sealed partial class ProductionSystem
         return false;
     }
 
+    /// <summary>
+    /// The haul leg a load read (<see cref="CharacterCold.SavedHaul"/>), taken up by an operator starting on its machine again: it heads straight for the storage while it still carries
+    /// what the machine makes, or for the source while an input still has room for the fetched item, the storage or producer still standing (<see cref="Hauling"/>). Null: none.
+    /// </summary>
+    (BuildSite Site, Machine Machine)? Resumed(World world, CharacterCold cold, string machine, Machine m)
+    {
+        if (cold.SavedHaul is not { } saved || saved.Machine != machine || cold.Inventory is not { } inv) return null;
+        if (saved.Fetch is { } want ? !m.Inputs.Any(i => i.Item == want && i.Count < i.Recipe.Capacity) : !Products(inv, m).Any()) return null;
+        Go(cold, saved.Site, saved.Fetch);
+        return Hauling(world, cold);
+    }
+
     static bool Go(CharacterCold cold, string storage, string? fetch)
     {
         cold.HaulSite = storage;

@@ -476,6 +476,9 @@ A player character's order queue (the deque at `AITaskSytem` +0x40, [order queue
 - **Meitou keys**: string `meitou tjob<i>` (the order's site id: a build site, fixture or rock, which wins on load over a building handle, as `meitou pjob<i>`), int `meitou tjobK<i>` (the owner's
   detail code, `IOrderOwner.SaveKind`: a loot that opens the window, a bed named by a put-in order, a walk only to a container, a lock order done in place), each written only when set. Ground-item
   pick-ups (a runtime item id) and the Medic / Rescue buttons' looks are not saved. **Unknown**: how the original consumes the second list after a load.
+- **Haul leg** (Meitou only; whether the original saves one is **Unknown**): strings `meitou haulM` (the machine operated), `meitou haul` (the storage or
+  producer walked to) and `meitou haulF` (the ITEM fetched; absent: storing what it carries), written while an operator is on a haul leg. Meitou:
+  `Saving/HaulSave`; use: [hauling](../simulation.md#production).
 
 Meitou-only crime keys (`Saving/CrimeSave`, `LockSystem`, `FixtureRegistry`; the original's keys for these facts are **Unknown**), each written only while set and removed otherwise:
 - GAMESTATE_CHARACTER float `age`: the character's age (1 for people, an animal's growth, [animals](../game/animals.md#ageing)); **Verified** in vanilla saves.
