@@ -117,7 +117,12 @@ sealed class UserConfig
     /// <summary>"ma badpunch"'s attack distance -4 reads as 4 (Fixes settings; off: as written, as the game does).</summary>
     public bool FixPunchReach { get; set; } = true;
     /// <summary>Other buildings' parts (the Hub's wall in the Shinobi Thieves tower) are cut inside a building in the interior view (Fixes settings; off: drawn, as the game does; docs/render-interior-cut.md).</summary>
-    public bool FixPartsInBuildings { get; set; } = true;    /// <summary>The strategy camera's turn and tilt rate in degrees per second per unit of input (Controls settings): the original's
+    public bool FixPartsInBuildings { get; set; } = true;
+    /// <summary>Building interiors the game leaves unreachable (ruins its stitch cannot join, houses whose shipped tile interior differs from the placed
+    /// one) are joined to the street by Meitou's own rules (docs/game/pathfinding.md "Sealed interiors"; <c>NavBuildSettings.JoinSealedInteriors</c>, read
+    /// once when the game makes its navmesh system, so a change applies after a restart) (Fixes settings; off: sealed, as the game does).</summary>
+    public bool FixSealedInteriors { get; set; } = true;
+    /// <summary>The strategy camera's turn and tilt rate in degrees per second per unit of input (Controls settings): the original's
     /// <c>mouse speed pan</c> / <c>mouse speed tilt</c> (slider 2 … 50, default 6), one value for both here.</summary>
     public float CameraRotateSpeed { get; set; } = Meitou.Data.World.KenshiCamera.DefaultRotateSpeed;
     public const float MinCameraRotateSpeed = 2, MaxCameraRotateSpeed = 50;
