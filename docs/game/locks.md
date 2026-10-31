@@ -79,8 +79,8 @@ Save sample (autosave of the owner's game, 51 zone files): `lock lvl` values spa
   game-speed-scaled seconds since its last full update, see [game-loop](game-loop.md#the-character-update-budget)) to the accumulator. When it passes the
   next-roll time it resets to 0 and rolls `rand() < p`: success clears the locked flag; failure draws the next interval uniform
   in [5, 20] s. The first roll comes after 5 s. Expected time to open is therefore about `5 + 12.5 x (1/p - 1)` s.
-- **Animation**: the cage functionality's `animation lockpick` when imprisoned, else `medic` (`crawl use` when crawling),
-  played at speed `clamp(0.01 x skill, 0.55, 2.0)` (**Verified**, speed is cosmetic: it does not change the roll timing).
+- **Animation**: the cage functionality's `animation lockpick` when imprisoned (`medic` when it lists none), else `medic` (`crawl use` when crawling),
+  played at speed `clamp(0.01 x skill, 0.55, 2.0)`; shackle picking and cutting play the same (**Verified**, [animation](../animation.md#lockpicking); speed is cosmetic: it does not change the roll timing).
 - **XP** (`FUN_1408c62e0`, **Verified**): after each roll, stat 37 gains `k x map[37] x ((101 - stat) / 101)^2` with
   `k = 1.2` on success, 0.24 on failure. The lock level is passed but unused.
 - **Bar** (**Verified**, Task_PickLock slot 2 `FUN_140359160`): each update sets the task's floating bar

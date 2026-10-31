@@ -56,6 +56,9 @@ public sealed class CharacterAnimation
     /// </summary>
     public bool Strafing;
     public float StrafeTimer, StrafeSpeed, StrafeShare;
+    /// <summary>The clip a lock or shackle worker plays at its own rate (-1: none) and that rate, a factor on the clip's play speed (docs/animation.md "Lockpicking"). Derived, not hashed.</summary>
+    public int RatedClip = -1;
+    public float RatedSpeed = 1;
     /// <summary>The facing the body is drawn at (radians, as <c>CharacterHot.Yaw</c>) and whether it is set: it chases the character's facing at a limited rate (<see cref="AnimationSystem.FollowFacing"/>). Derived for drawing, not hashed.</summary>
     public float DrawYaw;
     public bool HasDrawYaw;
@@ -171,10 +174,30 @@ public sealed class AnimationSystem(AnimationLibrary library, AnimationLengths l
         CharacterTask.Operate => cold.Operating ? cold.OperateClip is { } clip && SitClipOf(clip) is >= 0 and var used ? used : DismantlingClip : -1,
         // In a bed: the clip its functionality names (Observed, Task_UseBed: sleepinbed, sleeponfloor), else lying on the floor.
         CharacterTask.Sleep => cold.InSomething != Locks.HeldState.Bed ? -1 : cold.OperateClip is { } bed && SitClipOf(bed) is >= 0 and var lain ? lain : LyingClip,
+        // Picking a lock or shackles, or cutting shackles, at the work (docs/animation.md "Lockpicking", Verified: the medic clip outside a cage).
+        CharacterTask.Idle when WorksLock(cold, task) => TreatingClip,
         // A captor killing, eating or processing a captive (Task_KillPrisoner, Task_EatPrisoner, Task_ProcessNewSlave, Observed).
         CharacterTask.Idle when cold.ActionClip is { } act && SitClipOf(act) is >= 0 and var acting => acting,
         _ => -1,
     };
+    /// <summary>
+    /// Whether the character picks a lock (a door, cage or container: Task_PickLock) or picks or cuts shackles (Task_PickLock_Shackles, Task_CutShackles) at the work (standing: the walk there is <see cref="CharacterTask.GoTo"/>);
+    /// all three updates play the lockpick clip (docs/animation.md "Lockpicking", <b>Verified</b>). Breaking shackles is instant and plays none.
+    /// </summary>
+    static bool WorksLock(CharacterCold cold, CharacterTask task) =>
+        task == CharacterTask.Idle && (cold.PickingLock is not null || cold.Shackles is { Work: Locks.ShackleWork.Pick or Locks.ShackleWork.Cut });
+
+    /// <summary>
+    /// The lockpick clip (docs/animation.md "Lockpicking", <b>Verified</b>): in a cage its functionality's <c>animation lockpick</c>, or <c>medic</c> when it lists none (no crawl test then);
+    /// else <c>crawl use</c> for a crawler, else <c>medic</c>.
+    /// </summary>
+    int LockpickClip(CharacterCold cold, bool inCage, bool crawling) =>
+        inCage ? cold.CageClips.Lockpick is { } own && SitClipOf(own) is >= 0 and var listed ? listed : TreatingClip
+        : crawling && CrawlUseClip >= 0 ? CrawlUseClip : TreatingClip;
+
+    /// <summary>The lockpick clip's rate: <c>clamp(0.01 x effective lockpicking, 0.55, 2)</c> times the clip's play speed (<b>Verified</b> the clamp, cutting included; the play speed factor is <b>Observed</b>).</summary>
+    static float LockpickSpeed(CharacterCold cold) => Math.Clamp(0.01f * Locks.Lockpicking.Skill(cold), 0.55f, 2f);
+
     // The combat system asks this system for its hit reaction clips (it owns the stun, this system the clips).
     readonly bool stumbleHook = Hook(combat, library, lengths);
 
@@ -442,6 +465,12 @@ public sealed class AnimationSystem(AnimationLibrary library, AnimationLengths l
             else if (LyingClip >= 0) wanted.Add((LyingClip, 1));
             a.Idle = -1;
         }
+        // Picking a lock (its own cage, or its shackles) in a cage: the cage's `animation lockpick`, else medic.
+        else if (inCage && technique < 0 && WorksLock(cold, task) && LockpickClip(cold, true, crawling) is >= 0 and var picking)
+        {
+            wanted.Add((picking, 1));
+            a.Idle = -1;
+        }
         // Awake in a cage: its `animation dazed` with a leg down (engine reading of the original's dazed test), else its `animation` (the Cage's stand 1).
         else if (inCage && technique < 0 && (crawling ? cold.CageClips.Dazed : cold.CageClips.Idle) is { } cageClip && SitClipOf(cageClip) is >= 0 and var caged)
         {
@@ -540,6 +569,8 @@ public sealed class AnimationSystem(AnimationLibrary library, AnimationLengths l
             a.Idle = -1;
         }
 
+        // The lockpick clip plays at the picker's rate.
+        (a.RatedClip, a.RatedSpeed) = !down && !carried && WorksLock(cold, task) ? (LockpickClip(cold, inCage, crawling), LockpickSpeed(cold)) : (-1, 1);
         return Settle(a, wanted, legs, lift, liftTime, technique, fight, speed, dt, Lengths, 1, seed, key, tick, legsShare);
     }
 
@@ -657,7 +688,7 @@ public sealed class AnimationSystem(AnimationLibrary library, AnimationLengths l
             else if (IsStrafe(d)) layer.Time = Wrap(layer.Time + dt * a.Rate * d.PlaySpeed * a.StrafeSpeed, length);   // signed: a step the other way plays it backwards
             else if (synched) layer.Time = (a.Phase + d.SynchOffset - MathF.Floor(a.Phase + d.SynchOffset)) * length;
             else if (d.MoveSpeed != 0) layer.Time += dt * a.Rate * d.PlaySpeed * speed;
-            else layer.Time += dt * (d.PlaySpeed > 0 ? d.PlaySpeed : d.Technique ? 1 : 0);
+            else layer.Time += dt * (d.PlaySpeed > 0 ? d.PlaySpeed : d.Technique ? 1 : 0) * (layer.Definition == a.RatedClip ? a.RatedSpeed : 1);
             if (!d.Loop && !synched && !IsStrafe(d)) layer.Time = Math.Clamp(layer.Time, 0, length * 0.999f);   // a one-shot clip holds its last frame
             if (d.Relocates && layer.Time > before) root += (lengths.Root(d.Clip, layer.Time) - lengths.Root(d.Clip, before)) * layer.Weight;
             if (layer.Weight <= 0 && layer.Target <= 0) continue;   // faded out: dropped

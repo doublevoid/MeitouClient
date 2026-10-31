@@ -189,6 +189,16 @@ rate 1.0; else `Character+0x51c` (`MedicalSystem::dazedOrAlert`, KenshiLib name 
 Meitou: a sleeper plays `CharacterCold.OperateClip` as a held clip at its `play speed`; a prisoner (`CharacterCold.CageClips`) plays the KO clip while down, the dazed clip
 with a leg down (engine reading of dazedOrAlert), else the idle clip, at the records' play speeds.
 
+### Lockpicking
+
+**Verified** (disassembly): the updates of Task_PickLock (`FUN_140359160`; Task_PickLock_Shackles `FUN_140359d90` calls it first) and Task_CutShackles (`FUN_140359f80`, also Task_CutLock) each
+play the clip returned by `FUN_140520bc0`, at rate `clamp(0.01 x lockpicking, 0.55, 2)` (effective stat 37, `FUN_140884ac0`; cutting too); Task_BruteForceShackles plays none. The clip: when the
+character is in a useable (`FUN_14003f954`) with a functionality, that record's first `animation lockpick`, else `medic` (no crawl test); otherwise `crawl use` at posture 1 or 2 (vfunc
+`0x368`), else `medic`. The play call (`FUN_14051eab0`) multiplies the rate by the animation's `+0x74`, taken to be its `play speed` (**Observed**). Data (**Observed**, probe of the merged
+records): the base Cage (1784) lists no `animation lockpick` (so `medic`); rebirth.mod gives `Cage- prisoner post` and `skin peeler` `stand pole`, `sleeping on floor` `crawl use`.
+Meitou (`AnimationSystem.WorksLock` / `LockpickClip`): while `PickingLock` or a Pick/Cut `Shackles` job is set and the task is Idle (at the work; the walk there is GoTo), the same clip and rate;
+a caged picker uses `CageClips.Lockpick`.
+
 ### Clips that stop movement
 
 **Verified** (`AnimationClass::isCurrentlyIncapableOfWaypointMovemode` `@ 14051c870`, from `CharMovement::update`): while the current action clip has ANIMATION `disables movement`

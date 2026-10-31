@@ -27,8 +27,8 @@ public sealed record BedSpot(string Id, string Record, Vector3 Position, int Own
 /// <c>sleepinbed</c>, <c>sleeponfloor</c>), the sum of its construction materials (the bed search weighs a bed that needs more than 1 three times) and its use nodes
 /// (null with fewer than 2: it is lain in at its own origin and facing).
 /// </summary>
-/// <summary>A cage's clips (ANIMATION names; null: none listed): standing in it, unconscious, dazed.</summary>
-public readonly record struct CageClips(string? Idle, string? Ko, string? Dazed);
+/// <summary>A cage's clips (ANIMATION names; null: none listed): standing in it, unconscious, dazed, picking a lock inside it (docs/animation.md "Lockpicking").</summary>
+public readonly record struct CageClips(string? Idle, string? Ko, string? Dazed, string? Lockpick = null);
 
 public readonly record struct BedData(int Function, string? Clip, float Materials, BedNode[]? Nodes = null);
 
