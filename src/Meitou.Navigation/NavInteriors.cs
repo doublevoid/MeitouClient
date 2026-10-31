@@ -8,7 +8,7 @@ namespace Meitou.Navigation;
 /// the zone's mesh as extra polygons, joined to the exterior along the door polygons (docs/game/pathfinding.md, "Interiors"). To the queries an interior
 /// is part of the zone: the door is an ordinary link.
 /// </summary>
-internal static class NavInteriors
+internal static partial class NavInteriors
 {
     /// <summary>How close (units) two door edges have to be to be joined, and how far apart in height (engine choices).</summary>
     public const float JoinDistance = 6, JoinHeight = 12;
@@ -24,9 +24,10 @@ internal static class NavInteriors
 
     /// <summary>
     /// The zone's exterior mesh with the interior meshes appended and joined; both kept and pruned polygons are carried over. A doorless interior (an intact
-    /// building without doors, or a ruin) is joined along its hull instead of at its doors, a ruin within <see cref="RuinHullJoinDistance"/>.
+    /// building without doors, or a ruin) is joined along its hull instead of at its doors, a ruin within <see cref="RuinHullJoinDistance"/>. With
+    /// <paramref name="sealedJoin"/> (<see cref="NavBuildSettings.JoinSealedInteriors"/>) the interiors still sealed after those joins are bridged to the street (<see cref="OpenSealed"/>).
     /// </summary>
-    public static ZoneNavMesh Combine(ZoneNavMesh exterior, IReadOnlyList<InteriorMesh> interiors, Action<string>? log = null)
+    public static ZoneNavMesh Combine(ZoneNavMesh exterior, IReadOnlyList<InteriorMesh> interiors, Action<string>? log = null, SealedJoinInputs? sealedJoin = null)
     {
         if (interiors.Count == 0) return exterior;
         var vertices = new List<Vector3>(exterior.Vertices);
@@ -71,12 +72,14 @@ internal static class NavInteriors
         for (int k = 0; k < interiors.Count; k++)
             Join(vertices, polygons, neighbours, areas, kept, links, doorOf, doorIds, exteriorCount, offsets[k], interiors[k].Mesh.PolygonCount, interiors[k].Doorless,
                 interiors[k].Key ?? $"interior {k}", log, interiors[k].Ruin ? RuinHullJoinDistance : HullJoinDistance);
+        int bridges = sealedJoin is null ? 0 : OpenSealed(vertices, polygons, neighbours, areas, kept, links, doorOf, exteriorCount, offsets, interiors, sealedJoin, log);
 
         CarryKeep(polygons.Count, neighbours, links, areas, kept);
 
         var heights = new List<HeightGrid?>();
         foreach (var m in interiors.Select(i => i.Mesh).Prepend(exterior))
             for (int p = 0; p < m.PolygonCount; p++) heights.Add(m.Heights?[p]);
+        for (int b = 0; b < bridges; b++) heights.Add(null);
         return new ZoneNavMesh
         {
             ZoneX = exterior.ZoneX, ZoneZ = exterior.ZoneZ, Vertices = [.. vertices], Polygons = [.. polygons], Neighbours = [.. neighbours], Areas = [.. areas],
