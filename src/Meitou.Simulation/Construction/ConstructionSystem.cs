@@ -377,13 +377,16 @@ public sealed class ConstructionSystem : ITickSystem, ITaskOwner, ITaskHandler, 
             world.Post(PlacementRules.Message(PlacementFailure.NotAvailable));
             return null;
         }
-        var fail = PlacementRules.TownBlock(data, new Vector2(plan.Position.X, plan.Position.Z), towns, playerFactionId);
+        var reg = world.Buildings;
+        // Interior furniture or a node in a finished building of ours is not town-blocked (FUN_1404dba40), e.g. in a town house bought in another faction's town.
+        bool inOwn = plan.Parent is { } parent && (data.IsInteriorFurniture || data.IsNode)
+            && (reg.Find(parent) is { LevelPlacement: null, Complete: true } home && home.Owner == world.Player.Faction || world.Fixtures.OwnsFinishedProperty(parent, world.Player.Faction));
+        var fail = inOwn ? PlacementFailure.None : PlacementRules.TownBlock(data, new Vector2(plan.Position.X, plan.Position.Z), towns, playerFactionId);
         if (fail != PlacementFailure.None)
         {
             world.Post(PlacementRules.Message(fail));
             return null;
         }
-        var reg = world.Buildings;
         var materials = new MaterialSlot[data.Materials.Count];
         for (int i = 0; i < materials.Length; i++) materials[i] = new MaterialSlot(data.Materials[i].Item, data.Materials[i].Required);
         var site = new BuildSite

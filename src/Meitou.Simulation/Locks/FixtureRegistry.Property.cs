@@ -50,6 +50,13 @@ public sealed partial class FixtureRegistry
     public bool OwnsBuilding(string building, int faction) => faction >= 0 &&
         (properties.TryGetValue(building, out var p) ? p.Owner == faction : OfBuilding(building).Any(f => f.Owner == faction));
 
+    /// <summary>
+    /// Whether <paramref name="faction"/> owns the town house whose level instance id is <paramref name="instanceId"/> (what a building placed in it names as its parent) and it
+    /// stands finished (no repair under way).
+    /// </summary>
+    public bool OwnsFinishedProperty(string instanceId, int faction) => faction >= 0
+        && properties.Values.Any(p => p.Owner == faction && p.Building.InstanceId == instanceId && p.Construction is null or { Complete: true, Destroyed: false });
+
     public IReadOnlySet<string> OwnedProperties(int faction)
     {
         if (ownedProperties is null || ownedFaction != faction)
