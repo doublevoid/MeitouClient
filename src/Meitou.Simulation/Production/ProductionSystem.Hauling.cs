@@ -4,7 +4,7 @@ using Meitou.Simulation.Items;
 namespace Meitou.Simulation.Production;
 
 // Hauling (docs/simulation.md "Production"; the original's Task_EmptyMachine / Task_FillMachine in docs/game/buildings-production.md "Hauling"): with Settings.AutoHaul an operator at its
-// machine fills empty inputs with what it carries, takes a full output, carries the output to the nearest storage that takes it and fetches an empty input's item from the nearest storage
+// machine fills empty inputs with what it carries, takes a full output (a bench: its finished items once they stop it), carries the output to the nearest storage that takes it and fetches an empty input's item from the nearest storage
 // or producer output holding it (NearestSource). The trip is CharacterCold.HaulSite / HaulFetch; Schedule walks there, and the operator walks back to its machine once the items have moved.
 public sealed partial class ProductionSystem
 {
@@ -45,10 +45,14 @@ public sealed partial class ProductionSystem
             int moved = Placed(inv, made);
             if (moved > 0) { output.Count -= moved; changed = true; }
         }
+        // A bench stopped by its finished items (the first craft's store reached, its "output full") hands over those a storage takes.
+        if (m.Craft is { Queue.Count: > 0 } craft && Held(craft, craft.Queue[0].Option) >= craft.Queue[0].Option.Store &&
+            TakeFinished(craft, inv, made => NearestStorage(world, site, s => s.Data.Accepts(made.Record, made.Type) && Fits(s.Storage!, made)) is not null))
+            changed = true;
         if (changed) world.Machines.Touch();
-        if (m.Output is { } o && Carried(inv, o.Recipe.Item).FirstOrDefault() is { } carried &&
-            NearestStorage(world, site, s => s.Data.Accepts(carried.Record, carried.Type) && Fits(s.Storage!, carried)) is { } into)
-            return Go(cold, into, null);
+        foreach (var carried in Products(inv, m))
+            if (NearestStorage(world, site, s => s.Data.Accepts(carried.Record, carried.Type) && Fits(s.Storage!, carried)) is { } into)
+                return Go(cold, into, null);
         if (m.Craft is { Queue.Count: 0 }) return false;
         foreach (var input in m.Inputs)
             if (input.Rate > 0 && input.Count == 0 && NearestSource(world, site, input.Item) is { } from)
@@ -91,11 +95,11 @@ public sealed partial class ProductionSystem
                 if (placed == 0) break;
             }
         }
-        else if (inv is not null && machine.Output is { } output && store.Storage is { } into)
+        else if (inv is not null && store.Storage is { } into)
         {
-            foreach (var item in Carried(inv, output.Recipe.Item).ToList())
+            foreach (var item in Products(inv, machine).ToList())
             {
-                if (!store.Data.Accepts(item.Record, item.Type)) break;
+                if (!store.Data.Accepts(item.Record, item.Type)) continue;
                 inv.Remove(item);
                 if (into.Add(item)) continue;
                 // What the storage has no room for stays with the character.
@@ -118,6 +122,34 @@ public sealed partial class ProductionSystem
     /// <summary>The loose stacks of an ITEM in a character's main grid and backpack.</summary>
     static IEnumerable<ItemInstance> Carried(Inventory inv, string record) =>
         inv.All().Where(i => i.Record == record && i.Section is "main" or "backpack_content" && !i.LockedOn && i.Contents is null);
+
+    /// <summary>Whether a machine makes an ITEM: its output's, or one of a bench's crafts (any quality or model).</summary>
+    internal static bool Makes(Machine m, string record) => m.Output?.Recipe.Item == record || m.Data.Craft is { } bench && bench.Options.Any(o => o.Item == record);
+
+    /// <summary>The loose stacks a character carries of what <paramref name="m"/> makes.</summary>
+    static IEnumerable<ItemInstance> Products(Inventory inv, Machine m) =>
+        inv.All().Where(i => i.Section is "main" or "backpack_content" && !i.LockedOn && i.Contents is null && Makes(m, i.Record));
+
+    /// <summary>
+    /// Moves a bench's finished items that <paramref name="takes"/> passes (never one holding an inventory, which <see cref="Carried"/> would not deliver) into a character's inventory, in
+    /// output order; what does not fit stays in the output. True when any unit moved.
+    /// </summary>
+    static bool TakeFinished(CraftState craft, Inventory inv, Func<ItemInstance, bool> takes)
+    {
+        bool moved = false;
+        for (int k = 0; k < craft.Done.Count; k++)
+        {
+            var item = craft.Done[k];
+            if (item.Contents is not null || !takes(item)) continue;
+            int before = item.Quantity;
+            craft.Done.RemoveAt(k);
+            if (inv.Add(item)) { moved = true; k--; continue; }
+            craft.Done.Insert(k, item);
+            if (item.Quantity == before) break;   // no room left
+            moved = true;
+        }
+        return moved;
+    }
 
     /// <summary>Whether some of an item fits: a stack of it with room, or a free cell.</summary>
     static bool Fits(Inventory storage, ItemInstance item)

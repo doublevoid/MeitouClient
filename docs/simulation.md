@@ -1380,7 +1380,7 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
 - **Crafting** (`ProductionSystem.Crafting.cs`, data `Construction/CraftingData.cs`). `QueueCraft` (at most 20),
   `CancelCraft`, `RepeatCrafts`. The first craft binds the input sections to its ingredients (other items in a section
   fall on the ground); finished items wait in the output (section `out`) up to the option's store, then the bench reports
-  output full. Benches listing fewer `consumes` than a recipe's ingredients get extra sections. A repeating queue puts
+  output full (*Hauling* below takes them to storage). Benches listing fewer `consumes` than a recipe's ingredients get extra sections. A repeating queue puts
   each finished craft back at its end. Crafts no research lists are always available.
 - **Research repeats.** A `repeats` research can be done repeats+1 times, each paid at `cost x repeat mult^n`.
 - **Power** (`ProductionSystem.Power.cs`). Generators (fuelled or wind), batteries and consumers are machines; each
@@ -1396,8 +1396,12 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   carries it to the nearest player storage (function 2 or 13) that accepts it and has room; or it fetches an empty input's item from the nearest storage holding it or machine whose output holds it (a well's water for a farm). A
   storage accepts an item when `itemtype limit` matches and `limit inventory` is empty or lists it; `stackable bonus
   mult` scales its stacks. The player's drops into a storage follow the same rule ("does not take").
-  Excess fetched inputs stay with the operator. Engine choices: storage within `HaulRange` 3000 of the machine, ties
-  by site id, a fetch takes what the inputs have room for; the trip is not saved. Crafted items are not hauled.
+  Excess fetched inputs stay with the operator. A crafting bench's "full output" is its first craft stopped by the finished
+  items it holds (the option's store): the operator then takes the finished items a storage takes and carries them, and any
+  carried item the bench crafts, off the same way. Engine choices (the original's rule is
+  [Unknown](game/buildings-production.md#hauling)): storage within `HaulRange` 3000 of the machine, ties
+  by site id, a fetch takes what the inputs have room for, crafted items count by record whatever their quality or model,
+  items holding an inventory (backpacks) are never taken; the trip is not saved.
 - **Automatic machines** (`MachineData.IsAutomatic`, raw `max operators` 0; [facts](game/buildings-production.md#production)) produce
   every tick with nobody at them at s = 1 (producers only: refineries, mines, auto-looms, campfires), and their power demand is full. A character
   operating one (job 152, or the quick order) does not work it: it only hauls as above, every round whatever `AutoHaul` says.
@@ -1429,8 +1433,8 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   - 87 Operating machine: blocked while others hold every operator place or the machine has no work (no power; no queued research or craft; a
     farm growing with no water it holds or can get, or ripe with no plant left or no room; an empty input the operator cannot fill from its pack, a storage or a machine's output;
     a full output no storage takes). A farmer at a growing farm with water tends it: it plays the farm's clip (engine reading of task 87, [farming](game/buildings-production.md#farming)).
-  - 124 Hauling to (`CharacterTask.Haul`): the nearest player machine within `HaulRange` of the storage whose output the storage takes is
-    emptied into the hauler's pack and carried there; items the hauler already carries that some machine makes go first. Blocked with neither.
+  - 124 Hauling to (`CharacterTask.Haul`): the nearest player machine within `HaulRange` of the storage whose output, or bench whose finished items, the storage takes is
+    emptied into the hauler's pack (a bench: only the finished items the storage takes) and carried there; items the hauler already carries that some machine makes or bench crafts go first. Blocked with neither (engine choices).
   - 152 Operating automatic machine (Shift + Auto-Haul on an automatic machine; its companion 124 lands on the same machine): the operator above at the machine, hauling only.
     Blocked unless it is mid-trip for it, carries an item an input has room for, an empty input's item is in a storage, or a full or carried output has a storage that takes it
     (engine reading of the row's goal "no empty inputs", `AutoWork`). 124 on an automatic machine runs the same way, blocked unless it carries an item an input has room for.

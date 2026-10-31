@@ -341,7 +341,7 @@ public sealed partial class ProductionSystem
     /// <summary>
     /// Whether a job cannot run (the original skips such a job: an unmet start condition the planner cannot meet, or the target finder found nothing; docs/game/ai-tasks.md "Perma-jobs").
     /// Operating: the building is gone or not an operable machine, its operator places are taken by others, or it has no work (<see cref="HasWork"/>). Hauling to: the storage is gone, and
-    /// the character carries nothing it takes and no machine within <see cref="ProductionSettings.HaulRange"/> has an output it takes. Automatic machines (152, and 124 on one): <see cref="AutoWork"/>.
+    /// the character carries nothing it takes and no machine within <see cref="ProductionSettings.HaulRange"/> has an output or finished craft it takes. Automatic machines (152, and 124 on one): <see cref="AutoWork"/>.
     /// </summary>
     bool Blocked(World world, CharacterCold cold, PermaJob job)
     {
@@ -431,9 +431,9 @@ public sealed partial class ProductionSystem
     bool Room(World world, BuildSite site, Machine m) =>
         m.Output is { } o && (!o.Full || Settings.AutoHaul && items.Create(o.Recipe.Item, 1) is { } one && NearestStorage(world, site, s => s.Data.Accepts(one.Record, one.Type) && Fits(s.Storage!, one)) is not null);
 
-    /// <summary>A carried item a "Hauling to" job takes to its storage: a loose stack of something a player machine makes (not the character's own kit), that the storage takes and has room for.</summary>
+    /// <summary>A carried item a "Hauling to" job takes to its storage: a loose stack of something a player machine makes or a bench crafts (not the character's own kit), that the storage takes and has room for.</summary>
     static bool Takes(World world, Machine store, Items.ItemInstance item) =>
-        Stores(store, item) && world.Machines.All.Any(s => !s.Data.IsStorage && s.Output?.Recipe.Item == item.Record);
+        Stores(store, item) && world.Machines.All.Any(s => !s.Data.IsStorage && Makes(s, item.Record));
 
     /// <summary>A loose stack (not the character's own kit) the storage takes and has room for.</summary>
     internal static bool Stores(Machine store, Items.ItemInstance item) =>
@@ -462,22 +462,29 @@ public sealed partial class ProductionSystem
     static IEnumerable<Items.ItemInstance> Delivered(World world, Items.Inventory inv, Machine store, bool ditch) =>
         ditch ? Ditchable(inv).Where(i => Stores(store, i)) : inv.All().Where(i => Takes(world, store, i));
 
-    /// <summary>The player's complete machine (not a storage) nearest a storage within <see cref="ProductionSettings.HaulRange"/> whose output holds items the storage takes (ties: the lower site id).</summary>
+    /// <summary>
+    /// The player's complete machine (not a storage) nearest a storage within <see cref="ProductionSettings.HaulRange"/> whose output holds items the storage takes, or bench whose finished
+    /// items include one (ties: the lower site id).
+    /// </summary>
     string? HaulSource(World world, BuildSite storage, Machine store)
     {
         string? best = null;
         float bestGap = float.MaxValue;
         foreach (var s in world.Machines.All)
         {
-            if (s.Data.IsStorage || s.Output is not { Count: > 0 } output || Site(world, s.Site) is not { Complete: true } site || site.Owner != world.Player.Faction) continue;
+            if (s.Data.IsStorage || s.Output is not { Count: > 0 } && s.Craft is not { Done.Count: > 0 } || Site(world, s.Site) is not { Complete: true } site || site.Owner != world.Player.Faction) continue;
             float gap = Gap(site.Position, storage.Position);
             if (gap > Settings.HaulRange || gap > bestGap || (gap == bestGap && string.CompareOrdinal(s.Site, best) > 0)) continue;
-            if (items.Create(output.Recipe.Item, 1) is not { } one || !store.Data.Accepts(one.Record, one.Type) || !Fits(store.Storage!, one)) continue;
+            bool output = s.Output is { Count: > 0 } o && items.Create(o.Recipe.Item, 1) is { } one && store.Data.Accepts(one.Record, one.Type) && Fits(store.Storage!, one);
+            if (!output && !(s.Craft is { } craft && craft.Done.Any(d => Finished(store, d)))) continue;
             best = s.Site;
             bestGap = gap;
         }
         return best;
     }
+
+    /// <summary>A bench's finished item a storage takes and has room for (not one holding an inventory).</summary>
+    static bool Finished(Machine store, Items.ItemInstance item) => item.Contents is null && store.Data.Accepts(item.Record, item.Type) && Fits(store.Storage!, item);
 
     void StartJob(World world, int slot, int k)
     {
@@ -531,7 +538,7 @@ public sealed partial class ProductionSystem
     /// <summary>The haul trip is the implicit ditching's (242).</summary>
     static bool Ditching(CharacterCold cold) => cold.Running is { Implicit: true, Row: TaskType.DITCH_ALL_RESOURCES } run && run.Runs(CharacterTask.Haul);
 
-    /// <summary>A hauler at the end of a leg (serial): at the source it takes the output, then makes for the storage; at the storage it puts in what the storage takes and the job's trip ends.</summary>
+    /// <summary>A hauler at the end of a leg (serial): at the source it takes the output (a bench's finished items the storage takes), then makes for the storage; at the storage it puts in what the storage takes and the job's trip ends.</summary>
     void HaulStep(World world, int slot)
     {
         var table = world.Characters;
@@ -553,6 +560,7 @@ public sealed partial class ProductionSystem
                 output.Count -= moved;
                 world.Machines.Touch();
             }
+            if (there.Craft is { } craft && TakeFinished(craft, inv, d => Finished(store, d))) world.Machines.Touch();
             if (Delivered(world, inv, store, Ditching(cold)).Any()) cold.HaulSite = storeId;
             else End(world, slot);
             return;
