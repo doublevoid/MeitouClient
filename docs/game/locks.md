@@ -250,6 +250,9 @@ Same targets as picking; Task_CutLock / Task_BruteForceLock share the shackle ta
   `CharacterRenderer` (`CreateRotationY(yaw)`) have it. The `cage1.mesh` (Prisoner Cage part `Cannibal Camp Cage`) lock box is a vertex cluster on its +Z wall (x ~ +4, z ~ +7, mid height; **Observed** from vertex positions),
   and the Spiked Cage's `Cage_LOCK-ext-Node001` (5.6, 0, 13) looks along -Z (node yaw -85 deg, minus 90) at it: the door is on local +Z, so a prisoner faces the door. The part's `offset Z` (12) belongs to a
   `is for position marker` part: it places the building's position marker (where characters use the cage), not the mesh. The mesh and the occupant both sit at the origin.
+- **Walking out**: a cage is a hole in the navmesh (`Prisoner Cage` `path mode` 1, which behaves as OBSTACLE: [pathfinding](pathfinding.md)), and the occupant stands at the cage's
+  origin, so whoever gets out starts off the mesh and walks to the nearest mesh point (**Observed**, `meitou-tools navmesh --town Rebirth`: the Rebirth cage at -47949,-56267 cuts a
+  ~15-unit square, a path from its centre starts 7 units away at its edge). How the original's agent leaves the hole is **Unknown**; Meitou walks straight out ([pathfinding](pathfinding.md), "A walker off the mesh").
 - **Locked cage**: the occupant cannot leave; `Get out of cage` (133, 207) needs `!isDoorLocked`; tooltip shows the lock level
   or "The cage you are in is UNLOCKED. Nobody knows this but you" (`FUN_1405d4260`).
 - **Leaving** (`Task_GetOutOfCage`, `FUN_1403554b0`, **Verified**): restores AI flags and pose. The task's constructor flag (`+0x80`; 1 for 207 and 256, 0 for 133, the task factory `FUN_14032ebd0` and `FUN_140335200`) is copied to the prisoner's
