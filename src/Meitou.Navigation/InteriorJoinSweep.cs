@@ -46,12 +46,13 @@ internal static class InteriorJoinSweep
     /// The interiors of a zone's build reached from the street: the zone's kept set resolved alone (its seeds and the border rule, as with no neighbour
     /// loaded) or with its neighbours (<paramref name="resolved"/>), walked over kept polygons, joins and links from its exterior's kept polygons; an
     /// interior counts when a polygon its own pruning kept is reached (any of it when that kept nothing: a doorway strip kept only through a join is not the
-    /// room). Keys are the interiors' building keys (<see cref="InteriorMesh.Key"/>).
+    /// room). Keys are the interiors' building keys (<see cref="InteriorMesh.Key"/>). <paramref name="bridges"/> counts the sealed-interior bridge polygons
+    /// (<see cref="NavBuildSettings.JoinSealedInteriors"/>) appended after the interiors, so the exterior's range ends where the interiors begin.
     /// </summary>
-    public static HashSet<string> Reached(ZoneCoordinate zone, ZoneNavMesh full, IReadOnlyList<InteriorMesh> inner, NavBuildSettings settings, bool[]? resolved = null)
+    public static HashSet<string> Reached(ZoneCoordinate zone, ZoneNavMesh full, IReadOnlyList<InteriorMesh> inner, NavBuildSettings settings, bool[]? resolved = null, int bridges = 0)
     {
         var keep = resolved ?? ZoneKeptClosure.Resolve(new Dictionary<ZoneCoordinate, ZoneNavMesh> { [zone] = full }, settings)[zone];
-        int exterior = full.PolygonCount - inner.Sum(m => m.Mesh.PolygonCount);
+        int exterior = full.PolygonCount - inner.Sum(m => m.Mesh.PolygonCount) - bridges;
         var reached = new bool[full.PolygonCount];
         var queue = new Queue<int>();
         for (int p = 0; p < exterior; p++) if (keep[p]) { reached[p] = true; queue.Enqueue(p); }
