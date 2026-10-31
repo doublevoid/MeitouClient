@@ -459,7 +459,7 @@ public sealed partial class World : IDisposable
         if (Buildings.Count > 0 || Buildings.Towns.Count > 0) Buildings.Hash(ref h);   // only once the player has a site, so worlds without one hash as before
         if (GroundItems.Count > 0) GroundItems.Hash(ref h);   // only once something lies on the ground, so worlds without hash as before
         if (ItemSlots.Count > 0) ItemSlots.Hash(ref h);   // only once a town with item slots registered
-        if (Machines.Count > 0) Machines.Hash(ref h);   // only once the player has a working building
+        if (Machines.Count > 0) Machines.Hash(ref h);   // only once the player has a working building or an active zone's NPC town a producer
         if (Research.Changed) Research.Hash(ref h);   // only once research changed in play
         foreach (var s in systems) if (s is IStateHashed hashed) hashed.Hash(ref h);
         return h.Value;

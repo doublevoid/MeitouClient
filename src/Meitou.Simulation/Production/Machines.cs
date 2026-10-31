@@ -85,12 +85,18 @@ public sealed class CraftState
 
 /// <summary>
 /// A complete player building that works or stores (docs/simulation.md "Production"): its recipe slots, storage grid and farm. Made by <see cref="ProductionSystem"/> when the site completes
-/// (or loads complete) and dropped with the site; serial phases only.
+/// (or loads complete) and dropped with the site; serial phases only. Also a rock's (a natural site) and an NPC town producer's (<see cref="TownSite"/>).
 /// </summary>
 public sealed class Machine
 {
     public required string Site { get; init; }
     public required MachineData Data { get; init; }
+    /// <summary>
+    /// The site made from an NPC town's level building (its <see cref="Meitou.Data.World.BuildingKey"/> is <see cref="Site"/>; no registry site): a mine, well, farm or refinery the town's
+    /// workers run. Null for the player's buildings and rocks. Such a machine is not published, saved only through its building's state keys, and on no power grid.
+    /// </summary>
+    public Construction.BuildSite? TownSite { get; init; }
+    public bool NpcTown => TownSite is not null;
     /// <summary>Where the building stands (its items drop here when it goes).</summary>
     public System.Numerics.Vector3 Position { get; init; }
     public InputSlot[] Inputs { get; init; } = [];
@@ -244,14 +250,18 @@ public sealed class Machine
     }
 }
 
-/// <summary>The machines of the player's buildings, by site id, in the order they were made. Hashed only while it holds one.</summary>
+/// <summary>The machines of the player's buildings, rocks and NPC town producers, by site id, in the order they were made. Hashed only while it holds one.</summary>
 public sealed class MachineRegistry
 {
     readonly List<Machine> all = [];
     readonly Dictionary<string, Machine> bySite = new(StringComparer.Ordinal);
     IReadOnlyList<MachineSnapshot>? published;
 
+    int townCount;
+
     public int Count => all.Count;
+    /// <summary>How many machines the host shows (all but the NPC towns', <see cref="Published"/>).</summary>
+    public int Shown => all.Count - townCount;
     public IReadOnlyList<Machine> All => all;
     public Machine? Find(string site) => bySite.GetValueOrDefault(site);
     /// <summary>Bumped on every change the host shows (items, progress, status).</summary>
@@ -265,6 +275,7 @@ public sealed class MachineRegistry
 
     internal void Add(Machine machine)
     {
+        if (machine.NpcTown) townCount++;
         all.Add(machine);
         bySite[machine.Site] = machine;
         Touch();
@@ -274,6 +285,8 @@ public sealed class MachineRegistry
     internal void Replace(Machine machine)
     {
         int at = all.FindIndex(m => m.Site == machine.Site);
+        if (at >= 0 && all[at].NpcTown) townCount--;
+        if (machine.NpcTown) townCount++;
         if (at < 0) all.Add(machine);
         else all[at] = machine;
         bySite[machine.Site] = machine;
@@ -283,6 +296,7 @@ public sealed class MachineRegistry
     internal bool Remove(string site)
     {
         if (!bySite.Remove(site, out var m)) return false;
+        if (m.NpcTown) townCount--;
         all.Remove(m);
         Touch();
         return true;
@@ -292,6 +306,7 @@ public sealed class MachineRegistry
     {
         all.Clear();
         bySite.Clear();
+        townCount = 0;
         Touch();
     }
 
@@ -302,5 +317,6 @@ public sealed class MachineRegistry
         foreach (var m in all) m.Hash(ref h);
     }
 
-    internal IReadOnlyList<MachineSnapshot> Published(ItemFactory items) => published ??= [.. all.Select(m => MachineSnapshot.Of(m, items))];
+    /// <summary>The machines the host shows: every one but the NPC towns' (the player's windows and HUD read only the player's buildings and rocks).</summary>
+    internal IReadOnlyList<MachineSnapshot> Published(ItemFactory items) => published ??= [.. all.Where(m => !m.NpcTown).Select(m => MachineSnapshot.Of(m, items))];
 }

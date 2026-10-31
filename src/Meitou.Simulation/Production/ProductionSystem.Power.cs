@@ -28,7 +28,7 @@ public sealed partial class ProductionSystem
     }
 
     /// <summary>The research upgrade of the machine's building: the player's only (<c>FUN_14082ec70</c>).</summary>
-    BuildingUpgrade UpgradeOf(World world, Machine m) => world.Research.Upgrade(world, m.Data.Id, Site(world, m.Site)?.Owner ?? -1);
+    BuildingUpgrade UpgradeOf(World world, Machine m) => world.Research.Upgrade(world, m.Data.Id, MachineSite(world, m)?.Owner ?? -1);
 
     float Rated(World world, Machine m) => m.Data.PowerOutput + UpgradeOf(world, m).PowerIncrease;
     /// <summary>A battery's capacity now (<c>FUN_140297650</c>, <b>Verified</b>): the construction fraction x (capacity + research increase).</summary>
@@ -61,12 +61,13 @@ public sealed partial class ProductionSystem
         {
             m.Power = 1;
             // Slot 59 (isIndoors): interior furniture standing in a building; slot 164: a light building outdoors works only while it is not daytime.
-            m.Indoors = m.Data.InteriorFurniture && Site(world, m.Site)?.Parent is not null;
+            m.Indoors = m.Data.InteriorFurniture && MachineSite(world, m)?.Parent is not null;
             m.Active = !m.Data.IsLight || m.Indoors || !world.Daytime;
             if (m.Data.IsWind) (m.Wind, m.WindRated) = (WindShare(world, m), Rated(world, m));
             if (m.Data.Function == MachineData.RainCollectorFunction)
                 m.Rain = !m.Indoors && world.Weather?.At(m.Position.X, m.Position.Z) is { Affect: not WeatherAffecting.Acid } here ? here.Wetness : 0;
-            if (!m.Data.IsConsumer && !m.Data.IsGenerator && !m.Data.IsBattery) continue;
+            // An NPC town's machine is on no grid (engine choice, as NPC turrets: NPC towns have no power grid here), so its power share stays 1.
+            if (!m.Data.IsConsumer && !m.Data.IsGenerator && !m.Data.IsBattery || m.NpcTown) continue;
             if (Site(world, m.Site) is not { Complete: true } site) continue;
             if (!grids.TryGetValue(site.Town, out var grid)) grids[site.Town] = grid = [];
             grid.Add(m);
@@ -81,12 +82,12 @@ public sealed partial class ProductionSystem
             }
         foreach (var m in world.Machines.All)
         {
-            var site = Site(world, m.Site);
+            var site = MachineSite(world, m);
             bool built = site is { Complete: true };
             m.Health = site is { Target: > 0 } s ? Math.Clamp(s.Progress / s.Target, 0, 1) : 1;
             m.ProductionMult = UpgradeOf(world, m).ProductionMult;
             m.Efficiency = built ? Efficiency(world, m) : 0;
-            m.HasPower = built && HasPower(world, m, Site(world, m.Site)!.Town);
+            m.HasPower = built && (m.NpcTown || HasPower(world, m, site!.Town));
             m.Rotation = !built ? 0 : m.Data.IsGenerator ? (m.PowerOn ? Output(world, m) * 0.01f : 0) : m.Efficiency;
             if (m.Data.IsBattery)
             {

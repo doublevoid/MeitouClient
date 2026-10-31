@@ -121,7 +121,7 @@ public static partial class SaveCapture
         var outposts = data.PlayerFaction >= 0 ? BuildingSave.Write(game, world, data.Factions[data.PlayerFaction].Id, options.Seed) : new Dictionary<int, Hand>();
         // Again, with the states of the buildings first written now (job targets name them by handle).
         buildings = HeldSave.BuildingStates(game);
-        MachineSave.Write(game, world);
+        MachineSave.Write(game, world, buildings);
         world.Systems.OfType<Combat.CombatSystem>().FirstOrDefault()?.WriteTurretShots(world, buildings);
         GroundItemSave.Write(game, world, data.Items);
         var races = new Dictionary<string, RaceData?>(StringComparer.Ordinal);

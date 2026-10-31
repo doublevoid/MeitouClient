@@ -132,7 +132,7 @@ public sealed partial class AiSystem
         {
             if (t.Kind != Targets.Machine) return null;
             foreach (var m in world.Machines.All)
-                if (m.Position.X == t.Position.X && m.Position.Z == t.Position.Z) return m;
+                if (!m.NpcTown && m.Position.X == t.Position.X && m.Position.Z == t.Position.Z) return m;
             return null;
         }
 
