@@ -26,6 +26,12 @@ public sealed record NavBuildSettings
     public float SeedHeightSlack { get; init; } = 18f;
     /// <summary>How far (in cells) a door hull is grown before it paints cells, so a thin leaf closes its doorway.</summary>
     public float DoorInflateCells { get; init; } = 1f;
+    /// <summary>
+    /// Meitou's "Sealed interiors" fix (docs/game/pathfinding.md "Sealed interiors"): interiors the original leaves unreachable (ruins its stitch cannot
+    /// join, houses whose shipped tile interior differs from the placed one) are joined to the street by Meitou's own rules. Off (the default here, the
+    /// tool's and the tests'): as the original. Part of the cache's settings hash.
+    /// </summary>
+    public bool JoinSealedInteriors { get; init; }
 }
 
 /// <summary>Timings of one build, milliseconds.</summary>
