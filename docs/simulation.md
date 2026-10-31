@@ -507,6 +507,7 @@ A path walker out of a fight whose remaining slide round a touched body is under
 **Observed** (issue #138, scratch headless run of the Hub with its population on the real navmesh): paths pulled tight through the same corners put two walkers going opposite ways on
 one line (0.03 apart sideways, (-51678, 1660, 3745)); with nothing left to slide by, both stood 57 s until their AI picked new goals. On open ground (scratch) such a pair, or a walker
 straight at a stander, never passed (the stander was shoved along ahead); with the rule both pass in 1.4..2.1 s, as pairs 0.3 or more apart always did.
+Separation, body contact and a covered goal or corner count only bodies within `FlockHeight` 20 in height, as the original's flocking list takes those within 20 up ([bodies in the way](game/pathfinding.md#bodies-in-the-way); both ways here, engine reading). **Observed** (same scratch run, Hub house by (-51214, 1582, 2625)): a walker on the street stood 37 s pushed back each tick by two resters and a sleeper on the storey 66 above, the only writer being the movement step.
 A path corner another body covers counts as reached within 5 (half `ArriveRadius`; engine choice, like the covered last point): **Observed** (same scratch run, (-49209, 1489, 209)) a walker
 3 from a corner a stander covered could neither come within `CornerReach` nor cut it, and stood 80 s. A walker
 shoves a stander aside; one in a bed or cage does not give; a sitter (resting or on a used seat, no path) is

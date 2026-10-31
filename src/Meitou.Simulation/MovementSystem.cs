@@ -46,6 +46,11 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     /// <summary>Speed in units/s of a repulsion of magnitude 100 (engine choice).</summary>
     public const float SeparationStrength = 0.15f;
     public const int MaxSeparationContributions = 26;
+    /// <summary>
+    /// The height difference within which another character is in a walker's way (separation, body contact, a covered goal or corner): the original's flocking list takes those
+    /// within 20 up (<c>FUN_14085a070</c>, docs/game/pathfinding.md "Bodies in the way"); taken both ways here (engine reading).
+    /// </summary>
+    public const float FlockHeight = 20;
     /// <summary>The share of the footprint radius a body is solid over (engine choice: 2.4 units for a human, about half the shoulders' width).</summary>
     public const float BodyShare = 0.6f;
     /// <summary>
@@ -959,6 +964,8 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                 {
                     if (other == s.Self || s.Count >= MaxSeparationContributions) return;
                     var all = s.Table.Previous;
+                    // Only bodies on its own level: the flocking list takes those within 20 in height (docs/game/pathfinding.md "Bodies in the way"), not a sleeper on the storey above.
+                    if (MathF.Abs(all[s.Self].Position.Y - all[other].Position.Y) > FlockHeight) return;
                     var d = new Vector2(all[s.Self].Position.X - all[other].Position.X, all[s.Self].Position.Z - all[other].Position.Z);
                     float len = d.Length();
                     if (len >= SeparationRadius) return;
@@ -1137,11 +1144,12 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     /// <summary>Whether another standing character's footprint covers <paramref name="goal"/> (last tick's positions).</summary>
     static bool GoalOccupied(World world, int self, Vector3 goal)
     {
-        var state = new OccupiedState { Table = world.Characters, Self = self, Goal = new Vector2(goal.X, goal.Z) };
+        var state = new OccupiedState { Table = world.Characters, Self = self, Goal = new Vector2(goal.X, goal.Z), Height = goal.Y };
         world.Grid.Query(goal.X, goal.Z, 30, ref state, static (int other, ref OccupiedState s) =>
         {
             if (s.Found || other == s.Self || !s.Table.Previous[other].Alive || s.Table.Cold(other) is not { CarriedBy.IsNone: true } c || c.Medical is { Incapacitated: true }) return;
             var at = s.Table.Previous[other].Position;
+            if (MathF.Abs(at.Y - s.Height) > FlockHeight) return;
             float r = Combat.CombatTuning.Footprint(c);
             if (Vector2.DistanceSquared(new Vector2(at.X, at.Z), s.Goal) < r * r) s.Found = true;
         });
@@ -1153,6 +1161,7 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
         public CharacterTable Table;
         public int Self;
         public Vector2 Goal;
+        public float Height;
         public bool Found;
     }
 
