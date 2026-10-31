@@ -234,6 +234,10 @@ public sealed record CharacterSnapshot(CharacterId Id, CharacterAppearance? Appe
     public float Scale { get; init; } = 1;
     /// <summary>The movement task (<see cref="CharacterTask"/>); the host's sounds follow building, treating and looting from it.</summary>
     public CharacterTask Task { get; init; }
+    /// <summary>The BUILDING_FUNCTIONALITY (string id) of the machine this character operates, not a turret; its <c>animation events</c> fire on <see cref="OperateClip"/> (docs/audio.md "Footsteps and animation events"). Null otherwise.</summary>
+    public string? OperateFunctionality { get; init; }
+    /// <summary>The ANIMATION record name an operator plays at its machine (the functionality's <c>animation</c>, <c>stonemine</c> without one); null when not operating.</summary>
+    public string? OperateClip { get; init; }
     /// <summary>Working on a cage's lock (the picker's order is given and it is in reach or walking there).</summary>
     public bool PickingLock { get; init; }
     /// <summary>Picking or cutting shackles (a <see cref="Locks.ShackleJob"/> of that work, in reach or walking there): the <c>Character_Unlock</c> loop. Breaking and putting on have none.</summary>

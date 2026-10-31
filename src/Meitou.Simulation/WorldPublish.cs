@@ -162,6 +162,8 @@ public sealed partial class World
                 Carrying = cold?.Carrying ?? CharacterId.None,
                 HeldTool = state[i].Task == (byte)CharacterTask.Operate && cold is { OperateSite: not null, Appearance.Animal: null } ? cold.OperateTool : null,
                 Task = (CharacterTask)state[i].Task,
+                OperateFunctionality = OperateFunctionalityOf(state[i].Task, cold),
+                OperateClip = state[i].Task == (byte)CharacterTask.Operate ? cold?.OperateClip : null,
                 PickingLock = cold?.PickingLock is not null,
                 WorkingShackles = cold?.Shackles is { Work: Locks.ShackleWork.Pick or Locks.ShackleWork.Cut },
                 InBed = cold is { InSomething: Locks.HeldState.Bed },
@@ -262,6 +264,10 @@ public sealed partial class World
         float chance = Locks.Lockpicking.RollChance(c, l.Level);
         return new TaskBar(FormattableString.Invariant($"Lockpicking (Chance {MathF.Round(chance * 100)}%)"), l.NextRoll > 0 ? Math.Clamp(l.PickTime / l.NextRoll, 0, 1) : 0);
     }
+
+    /// <summary>The functionality of the machine an operator works, whose <c>animation events</c> join its clip's (Task_OperateMachine and Task_UseTrainingDummy, docs/audio.md "Footsteps and animation events"); not a gunner's.</summary>
+    string? OperateFunctionalityOf(byte task, CharacterCold? c) =>
+        task == (byte)CharacterTask.Operate && c?.OperateSite is { } site && Machines.Find(site) is { } m && m.Data.Function != Meitou.Data.World.ObjectRanges.TurretFunction ? m.Data.Functionality : null;
 
     /// <summary>The bar of Task_UseTrainingDummy (docs/game/ai-tasks.md "Finders of the jobs"): "Training", filled with the trained stat's fraction, while the user works the dummy.</summary>
     TaskBar? TrainBar(CharacterCold c)
