@@ -56,9 +56,12 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     /// <summary>A character within this distance of a waypoint has reached it.</summary>
     public const float ArriveRadius = 10;
     /// <summary>
-    /// How near (units) a walker comes to a corner it may not cut (<see cref="CanCut"/>) before it turns for the next waypoint (engine choice: about a step).
+    /// Within this distance (units) of a corner it may not cut (<see cref="CanCut"/>) a walker slows to land on the corner in its next step, and turns for the next waypoint only
+    /// from the corner itself (<see cref="OnCorner"/>; engine choice).
     /// </summary>
     public const float CornerReach = 2;
+    /// <summary>How near a corner it may not cut counts as standing on it (engine choice: float slack of a step that lands on it).</summary>
+    public const float OnCorner = 0.05f;
 
     /// <summary>
     /// Whether a walker at <paramref name="from"/> can step straight toward <paramref name="to"/> for <see cref="ArriveRadius"/> units, its height carried on as each step's is: a corner
@@ -822,7 +825,7 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                         // A corner another body stands on is passed from half the arrive radius (engine choice): the walker cannot come within CornerReach of it.
                         || !last && dist <= ArriveRadius * 0.5f && GoalOccupied(world, i, waypoint);
                     reached = occupied || dist <= (last ? cold.ArriveWithin > 0 ? cold.ArriveWithin : FinalArrive : ArriveRadius * 0.5f)
-                        && (last || dist <= CornerReach || CanCut(walk, p.Position, cold.Path[n.PathCursor + 1]))
+                        && (last || dist <= OnCorner || CanCut(walk, p.Position, cold.Path[n.PathCursor + 1]))
                         // A corner the agent's velocity has carried past (it turns at its acceleration, not at once) is behind it, not circled.
                         || !last && dist <= ArriveRadius && to.X * p.Velocity.X + to.Y * p.Velocity.Z < 0;
                     if (reached)
@@ -855,6 +858,9 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                     if (cold.Medical is { Crawling: true } && cold.CarriedBy.IsNone) desired = Bodies.Speed.Crippled;   // the final override, after water and sneaking
                     // Braking into the last point, never past it.
                     if (last) desired = MathF.Min(desired, MathF.Min(MathF.Sqrt(2 * PathAcceleration(cold) * dist), dist / dt));
+                    // Within CornerReach of a corner it may not cut, it steps onto the corner itself, not past it (engine choice): a path pulled along a wall or zone-border edge
+                    // leaves no ground beside the line, so turning from even a unit off the corner walks into nothing.
+                    else if (dist <= CornerReach) desired = MathF.Min(desired, dist / dt);
                 }
                 // On the provisional part of a long route: ask again (the zones ahead may have loaded), following this one until the answer comes.
                 if (n.PathCursor >= cold.PathExact) Reroute(world, ref n, cold);
