@@ -48,6 +48,11 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     public const int MaxSeparationContributions = 26;
     /// <summary>The share of the footprint radius a body is solid over (engine choice: 2.4 units for a human, about half the shoulders' width).</summary>
     public const float BodyShare = 0.6f;
+    /// <summary>
+    /// The least sideways share of its speed a path walker keeps when it touches a body nearly straight ahead (<see cref="Blocked"/>; engine choice, about 15 degrees): less, and it
+    /// steps to its own right by that share, so two walking the same line from opposite ends pass instead of standing nose to nose.
+    /// </summary>
+    public const float PassShare = 0.25f;
     /// <summary>A character within this distance of a waypoint has reached it.</summary>
     public const float ArriveRadius = 10;
     /// <summary>
@@ -956,7 +961,7 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
             bool seated = Seated(n, cold);
             // A steering fighter keeps it too: its repulsion is too weak to keep bodies apart in a crowd, and without it Contact shoves back out what the steering walks in.
             if (closing || seated) push.Sum = Vector2.Zero;
-            var drive = closing || seated ? dir * speed : Blocked(world, cold, ref push, new Vector2(p.Position.X, p.Position.Z), dir * speed);
+            var drive = closing || seated ? dir * speed : Blocked(world, cold, ref push, new Vector2(p.Position.X, p.Position.Z), dir * speed, agentWalk && !cold.InCombat);
             var step = (drive + push.Sum * SeparationStrength) * dt;
             var shove = closing || seated ? Vector2.Zero : Contact(world, i, cold, ref push, new Vector2(p.Position.X, p.Position.Z) + step);
             step += shove;
@@ -1081,14 +1086,18 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
 
     /// <summary>
     /// The velocity a character steps by without the part of it into a standing body it already touches (engine choice), so the ranks behind a blocked one do not press it
-    /// into those in front and a crowd does not squash; what is left slides it round them. The bodies counted are <see cref="Contact"/>'s.
+    /// into those in front and a crowd does not squash; what is left slides it round them. The bodies counted are <see cref="Contact"/>'s. A path walker out of a fight
+    /// (<paramref name="passBy"/>) whose slide round a body is under <see cref="PassShare"/> of its speed (the body nearly straight ahead) slides to its own right at that share
+    /// (engine choice): paths are pulled tight through the same corners, so two walking one stair or lane from opposite ends meet exactly nose to nose, where nothing is left to
+    /// slide by and both stood for good (**Observed**, Hub, issue #138).
     /// </summary>
-    static Vector2 Blocked(World world, CharacterCold cold, ref SeparationState near, Vector2 at, Vector2 drive)
+    static Vector2 Blocked(World world, CharacterCold cold, ref SeparationState near, Vector2 at, Vector2 drive, bool passBy)
     {
         if (drive == Vector2.Zero || !cold.CarriedBy.IsNone) return drive;
         var table = world.Characters;
         var all = table.Previous;
-        float mine = BodyRadius(cold);
+        float mine = BodyRadius(cold), wanted = drive.Length();
+        var right = new Vector2(drive.Y, -drive.X) / wanted;
         for (int k = 0; k < near.Count; k++)
         {
             int other = near.Near[k];
@@ -1100,7 +1109,13 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
             if (len >= mine + BodyRadius(them) || len < 1e-4f) continue;
             var normal = d / len;
             float into = -Vector2.Dot(drive, normal);
-            if (into > 0) drive += normal * into;
+            if (into <= 0) continue;
+            drive += normal * into;
+            if (!passBy) continue;
+            var side = new Vector2(-normal.Y, normal.X);
+            if (Vector2.Dot(side, right) < 0) side = -side;
+            float along = Vector2.Dot(drive, side);
+            if (MathF.Abs(along) < PassShare * wanted) drive += side * (PassShare * wanted - along);
         }
         return drive;
     }
