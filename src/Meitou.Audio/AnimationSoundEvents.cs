@@ -34,16 +34,7 @@ public sealed class AnimationSoundEvents
                     {
                         if (db.Find(reference.TargetStringId) is not { Type: FcsRecordType.ANIMATION_EVENT } def || def.GetString("event") is not { Length: > 0 } ev) continue;
                         var sound = new AnimationSoundEvent(ev, def.GetString("override state"), def.GetString("override value"), def.GetString("stop"), ev == "Footsteps", reference.Values.Value0 * 0.01f);
-                        list ??= [];
-                        // Insert before the first event later than this one; the same event at the same time twice is kept once.
-                        int at = 0;
-                        bool duplicate = false;
-                        for (; at < list.Count; at++)
-                        {
-                            if (list[at].Fraction == sound.Fraction && list[at].Event == sound.Event && list[at].OverrideValue == sound.OverrideValue) { duplicate = true; break; }
-                            if (sound.Fraction < list[at].Fraction) break;
-                        }
-                        if (!duplicate) list.Insert(at, sound);
+                        Insert(list ??= [], sound);
                     }
                 if (list is not null) result.byRecord[record.StringId] = [.. list];
             }
@@ -52,6 +43,41 @@ public sealed class AnimationSoundEvents
 
     /// <summary>The events of the record with this string id, in time order; null when it has none.</summary>
     public AnimationSoundEvent[]? Of(string recordId) => byRecord.GetValueOrDefault(recordId);
+
+    readonly Dictionary<(string, string), AnimationSoundEvent[]?> merged = [];
+
+    /// <summary>
+    /// An animation's events with a BUILDING_FUNCTIONALITY's <c>animation events</c> added, as an operator's clip carries them (<b>Observed</b>: Task_OperateMachine's work slot
+    /// <c>FUN_14035bc90</c> and Task_UseTrainingDummy's <c>FUN_14035c1e0</c> add the functionality's list to the state of the clip they play, through the same insertion,
+    /// docs/audio.md "Footsteps and animation events"). Kept per pair, so the same pair gives the same array; null when neither has events.
+    /// </summary>
+    public AnimationSoundEvent[]? With(string animationId, string functionalityId)
+    {
+        if (merged.TryGetValue((animationId, functionalityId), out var known)) return known;
+        var own = Of(animationId);
+        var added = Of(functionalityId);
+        AnimationSoundEvent[]? result = own;
+        if (added is not null)
+        {
+            var list = own is null ? new List<AnimationSoundEvent>() : [.. own];
+            foreach (var sound in added) Insert(list, sound);
+            result = [.. list];
+        }
+        merged[(animationId, functionalityId)] = result;
+        return result;
+    }
+
+    // Insert before the first event later than this one; the same event at the same time twice is kept once (FUN_140064870).
+    static void Insert(List<AnimationSoundEvent> list, AnimationSoundEvent sound)
+    {
+        int at = 0;
+        for (; at < list.Count; at++)
+        {
+            if (list[at].Fraction == sound.Fraction && list[at].Event == sound.Event && list[at].OverrideValue == sound.OverrideValue) return;
+            if (sound.Fraction < list[at].Fraction) break;
+        }
+        list.Insert(at, sound);
+    }
 
     /// <summary>How many records carry events.</summary>
     public int Records => byRecord.Count;

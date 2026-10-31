@@ -194,6 +194,12 @@ each frame (`GameHost.UpdateEmitters`, key = the building's instance id). **Engi
   A battery bank (constant `Intensity` 100) plays while it is full or charging, not while it drains or is empty.
 - **Once-powered classes** (benches, research, farms, others): `Sound` = (0, powered), the exe's completion call: they play from the moment the machine exists, at the base `Intensity` (global when 0). **Engine choice**: the order for
   a building the player finishes is Observed only (above), the sound is given to it as for the level's.
+- **Crafting stations** (what a worked bench sounds like, as in the exe): a bench's emitter is its BUILDING's first `sounds` entry, told once (above): Medical Workbenches (`Medical_Bench`), Robotics
+  and Skeleton Limb benches (`Research_bench`) play from completion whether worked or not, the Cooking Stove's `Oven` by distance; every other base-game crafting or research bench has no `sounds`. The
+  work itself sounds through the operator's clip: `stonemine` benches (weapon smiths, the chain and plate armour benches, which name no clip) swing `Attack` / `Work_Pick`, and the weapon smiths and plate
+  benches add `Impact` / `Plate` from their functionality ([above](#characters-footsteps-combat-voices)); `generic use` benches (clothing, leather, crossbow, arrow, research) carry no events and are silent.
+  Meitou: the snapshot's `OperateFunctionality` and `OperateClip` (an operator not at a turret) make the host fire `AnimationSoundEvents.With(clip, functionality)` for that clip's layer; a cursor whose
+  list changes goes on from its last fraction. **Engine choice**: the functionality's events leave the clip with the job.
 - **The level's buildings** and layout furniture have no machine (the simulation runs only the player's buildings), so the host decides once when it adds the emitter (`GameHost.LevelPowered`, **engine choice**; the exe runs their
   classes): needs-power emitters of once-powered classes play as above; generators, wind generators (efficiency their wind share, each frame), battery banks (the town is assumed to produce power) and furnace-like machines needing no operators
   play; machines that need operators or town power (wells, mines, processors, stills, looms, silos, distillers, the Electrical Workbench) stay silent, since the NPC workers and town grids are not simulated. Level furniture
@@ -254,6 +260,12 @@ through one helper (`FUN_1405c9a70(char, event, maxSqDist)`): **dropped when the
   object first) and `stop` (posted when the animation ends). Only the highest-weight animation that has events fires them (`FUN_1405b5c30`); the cursor (`FUN_140064690`) fires
   the events between the last and the current fraction, the rest of the pass when the clip wraps, and everything up to the fraction at once when an animation becomes the dominant one.
   An event named exactly `Footsteps` with no override first sets `Armor_Worn` to the body armour's `material type` (Cloth, Leather, Chain, Plate; the heaviest body-slot item, `FUN_1405d28b0`).
+- **A machine's events ride on its operator's clip** (**Observed**, disassembly: Task_OperateMachine's work slot `FUN_14035bc90` and Task_UseTrainingDummy's `FUN_14035c1e0` play the functionality's
+  `animation` (`stonemine` when empty), take that clip's state and hand it the BUILDING_FUNCTIONALITY's `animation events` list (`FUN_140065280` → `FUN_140064e10` per entry); whether they stay on the
+  character's clip after the job is **Unknown**). Base data (probe of the four files, **Verified**): weapon smiths I-III, `plates` and `copper alloy plates` `Impact` with `Impacts` = `Plate` at 30 %;
+  stone, ore and copper mines `Impact` with `Stone` / `Ore` / `Copper`; the seven farms `Character_farm`; the two training dummies `Impact` with `Dummy` at 40 %; no other functionality has any.
+  All of them use `stonemine` (its own `Pickaxe`: `Attack` with `Weapons` = `Work_Pick` at 10 %) or, the dummies, `chop down static`. `SFX_General_Bank` has `Character_farm` and `Impact`, whose
+  `Impacts` switch has all five values (**Verified**, FNV hashes against the bank dump).
 - **Surface** (`CharMovement::vfunc_11` calls `FUN_14065df80` while a character moves; `FUN_1405cafc0` sets the switch, `FUN_140a08c70` names it). **Verified** unless marked. GroundType 0..8 names Sand, Grass,
   Concrete, Wood, Metal, Water, Mud, Snow, Dirt; a RACE with `barefoot` and no boots uses `BFoot_Sand`, `BFoot_Grass`, `BFoot_Wood`, `BFoot_Metal`, `BFoot_Dirt` for those (the rest are shared). The name table has no bound:
   a type past 8 reads beyond it (**Unknown**; one record, `Bridgehead`, has `interior material` 9). In order:

@@ -23,6 +23,8 @@ sealed partial class GameHost
     AnimationSoundEvents? animationSounds;
     AnimationSoundEvent[]?[]? definitionEvents;
     string?[]? definitionWeapons;
+    // The operators' clips by ANIMATION name (their definition index, -1 for none), for the functionality's events.
+    readonly Dictionary<string, int> operateClips = new(StringComparer.Ordinal);
     readonly Dictionary<ulong, SoundMemo> soundMemo = [];
     int soundFrame;
 
@@ -58,6 +60,7 @@ sealed partial class GameHost
                 if (techniques.TryGetValue(library.Definitions[i].Id, out var t) && t is { Kinds: WeaponKinds.Unarmed, IsBlock: false, IsDodge: false, Animal: 0 })
                     weapons[i] = (t.Blows >= 2 ? t.Limb2 : t.Limb1) is 0 or 1 ? "HtH_Punch" : "HtH_Kick";   // the last blow's limb: the arms are 0 and 1 (FUN_1402b4570)
             definitionWeapons = weapons;
+            operateClips.Clear();
             characterSounds = new CharacterSounds(sound.Player, groundSurfaces) { Floor = FloorSurface };
         }
         var sounds = characterSounds;
@@ -91,9 +94,14 @@ sealed partial class GameHost
             if (!soundProfiles.TryGetValue(look, out var profile))
                 soundProfiles.Add(look, profile = CharacterSoundProfile.From(look, db));
             soundLayers.Clear();
+            // An operator's clip also carries its machine's functionality's `animation events` (a smith's Impact Plate, a mine's Impact Stone, a farm's Character_farm).
+            int operated = -1;
+            if (c.OperateFunctionality is not null && c.OperateClip is { } clipName && !operateClips.TryGetValue(clipName, out operated))
+                operateClips[clipName] = operated = library.IndexOf(clipName);
             foreach (var layer in c.Animations)
             {
-                var events = (uint)layer.Definition < (uint)definitionEvents!.Length ? definitionEvents[layer.Definition] : null;
+                bool valid = (uint)layer.Definition < (uint)definitionEvents!.Length;
+                var events = !valid ? null : layer.Definition == operated ? animationSounds!.With(library.Definitions[operated].Id, c.OperateFunctionality!) : definitionEvents[layer.Definition];
                 soundLayers.Add(new SoundLayer(layer.Definition, events, layer.Length > 0 ? layer.Time / layer.Length : 0, layer.Weight, events is null ? null : definitionWeapons![layer.Definition]));
             }
             ulong key = SoundKey(c.Id);
