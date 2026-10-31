@@ -1271,7 +1271,9 @@ cursor ray meets before the terrain, using the movement pick up to the viewed fl
 it queues with that building as parent (a site's id, a level building's instance id) and its floor. The building must be
 a finished player site or a level building the player's faction owns (its state's `owner faction ID`, else its town's
 faction; else the original's "don't own" / "incomplete" texts); the parent is left out of the overlap tests, the slope test is skipped (floor taken as
-level), and interior-only furniture is refused only off a floor. Engine stand-in for the original's node boxes against the
+level), and interior-only furniture is refused only off a floor. Interior furniture and nodes in such a building (or one being built) skip the town block,
+host and `ConstructionSystem.Place` alike (the latter for a finished player site or a finished owned town house, `FixtureRegistry.OwnsFinishedProperty`), so a
+house bought in another faction's town takes furniture ([rule](game/buildings-production.md#placement)); a town block on a floor shows the "don't own" text. Engine stand-in for the original's node boxes against the
 building's walls: the footprint must lie within the building's indoor hull. **Not decided** (never fail, so the ghost may
 show valid where the original refuses): snap nodes, usage nodes, blocked use nodes, the floor-number
 check above floor 0, vertical margins, the 5 deg object-surface rule. A `ceiling placement` ghost hangs its origin 1 below the

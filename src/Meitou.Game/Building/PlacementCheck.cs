@@ -85,8 +85,11 @@ public static class PlacementCheck
     {
         var b = q.Building;
         var at = new Vector2(q.Position.X, q.Position.Z);
-        var town = PlacementRules.TownBlock(b, at, q.Towns, q.PlayerFactionId);
-        if (town != PlacementFailure.None) return town;
+        // Interior furniture or a node on the floor of a building of ours (or of one being built) is not town-blocked: the original clears the ghost's town once the indoor
+        // check passes for such a ghost (FUN_1404dba40). Otherwise a town block on a building's floor shows the "don't own" text.
+        bool liftTown = q.On is { } floor && (b.IsInteriorFurniture || b.IsNode) && (floor.Owned || q.Sites.Any(s => s.Id == floor.Building));
+        var town = liftTown ? PlacementFailure.None : PlacementRules.TownBlock(b, at, q.Towns, q.PlayerFactionId);
+        if (town != PlacementFailure.None) return q.On is null ? town : PlacementFailure.NotOwnedBuilding;
 
         var turned = Quaternion.CreateFromAxisAngle(Vector3.UnitY, q.Yaw);
         var hull = q.Services.Footprint(b.Id) is { } footprint ? footprint.Place(q.Position, turned) : null;

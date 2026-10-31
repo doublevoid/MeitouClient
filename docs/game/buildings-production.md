@@ -221,6 +221,13 @@ shows the first failing message in this order (**Verified** unless marked):
   type 10 null towns have radius 0 (type 8 too), so they block only a `creates player town` building, within 2000.
   **Unknown/not modelled:** the original tests only that nearest town (Meitou tests every one), and swaps it for the
   town containing the ghost (`FUN_140928890`) when inside 0.9 x its radius (0.6 x when the nearest is ruins/POI).
+  **Verified** (disassembly of `FUN_1404dba40`, `FUN_1404d69c0`, click handler `FUN_1404e27e0`): the ghost's town is cleared,
+  so nothing is town-blocked, when the indoor check below passes for a ghost with `is interior furniture` or `is node`
+  (ghost `+0x109`; `+0x10a` is `is exterior furniture` or `is node`), and when its building is incomplete (then the
+  "incomplete" text shows). So furniture may go into a bought house in another faction's town; a ghost without those flags
+  stays blocked there. A blocked ghost in or on a building gets the "don't own" text. Outdoors, an interior+exterior ghost
+  in a foreign town fails unless the town's faction has byte `+0x1d0` set (meaning **Unknown**) and it is not `creates player
+  town`, and then is not town-blocked either; Meitou does not model this outdoor branch.
 - **Outposts** (**Verified**, `FUN_1404d6d90` per queued ghost on Confirm, then `FUN_1404db180`): a ghost in or on a
   building takes that building's town; else the nearest town of the player faction within 5000 (X/Z); else the town of
   the nearest player building within 2500 (the decompile adds an X/Z > 10000 test there that looks unreachable,
@@ -283,7 +290,11 @@ shows the first failing message in this order (**Verified** unless marked):
   is valid with all node points in one player-owned building; otherwise only if it is `is exterior furniture` or
   `is node` (**Verified** by code). So interior-only furniture must be inside, while interior+exterior items (Campfire,
   Camp Bed, storage boxes, fish racks) go either way. Without `is interior furniture`
-  the check passes. `ceiling placement` uses the ceiling ghost (hangs 1 below the hit of an upward ray).
+  the check passes. Inside, a building whose owner faction is not the player's still passes for a ghost that is not
+  `creates player town` when the building's vtable slot 102 (`+0x330`) or its faction's byte `+0x1d0` is set (both meanings **Unknown**,
+  not modelled: Meitou refuses any building the player does not own). Meitou counts a town house the player bought, repaired
+  or not, as owned like a player-built house: its floor holds the ghost, the town block is lifted as above, and the placed
+  building's parent is the house's level instance (saved with it, [town-house repairs](../simulation.md#buildings)). `ceiling placement` uses the ceiling ghost (hangs 1 below the hit of an upward ray).
 - **Resources** (`FUN_1404d9ea0`): `world resource mining` STONE/WATER/GROUND from a noise field; IRON/COPPER/CARBON
   need the biome's `resources` and a resource node within 1500, falling off from the node radius (>= 25) to 1500.
   Farms: fertility `1 - (1 - v) x fertility effect` (0 at or below `minimum fertility`), yield = biome
