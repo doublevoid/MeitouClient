@@ -500,6 +500,8 @@ towns' keys: `instance` = the entry id, `is nest` false, `building material`, `p
 `recently discovered`, `artifacts count`, the handle `hand*` (type 13 TOWN) and the population floats; plus int
 `override` (Town+0x51c, the player town's [reassessed radius](../game/buildings-production.md#placement); 0 when made), written only for a town
 whose faction is the player's. How the float is stored under an int key is **Unknown**; Meitou writes 0 and reassesses on load.
+The town's battery mode (Town +0x470, [power](../game/buildings-production.md#power)) is not among those keys (**Observed**, the `Town::vfunc_85` key list);
+what the original holds after a load is **Unknown**. Meitou writes it as the Meitou-only bool `meitou battery mode` and restores it on load.
 Buildings name it by their `town` handle. Whether the loader takes the name from the record name is **Unknown**.
 
 Meitou writes the level towns' pool keys (`pop`, `popd`, `pop2`, `popd2`, `tod`, `started`, `ded`) for every town it made or loaded pools for, and

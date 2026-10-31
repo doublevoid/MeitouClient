@@ -10,13 +10,22 @@ namespace Meitou.Simulation.Production;
 /// </summary>
 public sealed partial class ProductionSystem
 {
-    /// <summary>Per town, whether batteries covered a shortfall last tick (the original's town <c>+0x470</c>, read the frame after it is set; not saved).</summary>
-    readonly Dictionary<int, bool> batteryMode = [];
+    /// <summary>Battery mode of the grid of machines in no player town (town 0), which has no town to keep it on; not saved, not hashed. A player town's is <see cref="PlayerTown.BatteryMode"/>.</summary>
+    bool noTownBatteryMode;
     readonly Dictionary<int, List<Machine>> grids = [];
     /// <summary>Per town, whether its generators give power and its batteries can (the town object's <c>+0x474</c> and <c>+0x480</c> above 0 after <c>Town::vfunc_87</c>); what <see cref="HasPower"/> reads. Not saved.</summary>
     readonly Dictionary<int, (bool Generators, bool Batteries)> townSupply = [];
     /// <summary>Per town, the grid's totals after the last tick (the town panel's power and battery bars, <see cref="TownPower"/>). Not saved.</summary>
     readonly Dictionary<int, TownPower> townPower = [];
+
+    /// <summary>Whether a town's grid is in battery mode (the original's town <c>+0x470</c>, read the frame after it is set).</summary>
+    bool BatteryMode(World world, int town) => world.Buildings.FindTown(town) is { } t ? t.BatteryMode : noTownBatteryMode;
+
+    void SetBatteryMode(World world, int town, bool on)
+    {
+        if (world.Buildings.FindTown(town) is { } t) t.BatteryMode = on;
+        else noTownBatteryMode = on;
+    }
 
     /// <summary>The research upgrade of the machine's building: the player's only (<c>FUN_14082ec70</c>).</summary>
     BuildingUpgrade UpgradeOf(World world, Machine m) => world.Research.Upgrade(world, m.Data.Id, Site(world, m.Site)?.Owner ?? -1);
@@ -128,7 +137,7 @@ public sealed partial class ProductionSystem
         if (m.Data.IsGenerator || Rated(world, m) == 0) return true;
         if (!m.PowerOn) return false;
         if (!townSupply.TryGetValue(town, out var supply)) return true;
-        return supply.Generators || (m.GetsBattery && batteryMode.GetValueOrDefault(town) && supply.Batteries);
+        return supply.Generators || (m.GetsBattery && BatteryMode(world, town) && supply.Batteries);
     }
 
     /// <summary>
@@ -138,7 +147,7 @@ public sealed partial class ProductionSystem
     /// </summary>
     void Share(World world, int town, List<Machine> grid, float dt)
     {
-        bool mode = batteryMode.GetValueOrDefault(town);
+        bool mode = BatteryMode(world, town);
         float supply = 0, batteries = 0, demandTotal = 0;
         var consumers = new List<Machine>();
         foreach (var m in grid)
@@ -182,11 +191,11 @@ public sealed partial class ProductionSystem
             float used = drained = batteries - batteryLeft;
             foreach (var b in grid)
                 if (b.Data.IsBattery) b.Granted = used > 0 && batteries > 0 ? -used * b.Demand / batteries : 0;
-            batteryMode[town] = true;
+            SetBatteryMode(world, town, true);
         }
         else
         {
-            batteryMode[town] = false;
+            SetBatteryMode(world, town, false);
             var cells = grid.Where(b => b.Data.IsBattery && b.PowerOn && b.Charge < Capacity(world, b)).ToList();
             int n = cells.Count;
             foreach (var b in cells)
