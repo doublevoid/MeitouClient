@@ -194,7 +194,7 @@ A start polygon with no exit that clears the radius is left through its narrow e
 in it). **Observed** (zone 39.16, Stoat, scratch probe from ground-level points round its 25 doors): slivers beside door steps
 (Y-House `16-` 35046..35064,−71590..−71582, 4..6 wide, one 6-unit wall-ended exit; Y-House `18-`; Old Storm House `20-`) held
 8 of 1999 starts with no path at all, so a walker stopped or pushed there stayed stuck at the door; with the rule all 1999 path.
-A walker off the mesh (engine choices): its path starts at its own position, then the nearest mesh point, which it walks to; if the nearest start polygon gives no path, or
+A walker off the mesh (engine choices): its path starts at its own position, then the nearest mesh point, which it walks to straight (a step that lands off the mesh is taken while it nears that waypoint, at the walker's own height); if the nearest start polygon gives no path, or
 one whose first 10 units it cannot stand along, up to 4 next-nearest starts are tried. Movement turns early for the next waypoint (within 5) only where it can stand along
 the first 10 units of the straight line to it, else it walks to within 2 of the corner. A step blocked on the navmesh part asks for the path again from where the walker
 stands, up to 3 times since its last waypoint or order (`BlockedRepathLimit`), before the path and a GoTo order are dropped. **Observed** (zone 22.10, save "stuck", scratch sim): a walker on the terrain at

@@ -776,6 +776,8 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
             var wanted = Vector2.Zero;
             float desired = 0;
             bool finished = false, closing = false;
+            // The waypoint the walker heads for on its path (set while one is followed): off the walkable surface it walks straight at it.
+            Vector2? aim = null;
             int water = WaterStateAt(walk, p.Position, cold);
             cold.WaterState = (byte)water;
             // A fighter in its footwork: the fight steering's velocity, facing its target (docs/game/combat.md "Fight steering").
@@ -827,6 +829,7 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                 if (!reached)
                 {
                     dir = to / dist;
+                    aim = new Vector2(waypoint.X, waypoint.Z);
                     byte mode = cold.ModeOverride ?? n.Mode;
                     // A carrier in walk mode is raised to run mode (the original's speed selector, Observed; docs/game/carry-loot.md "Speed and weight").
                     if (mode == SpeedMode.Walk && !cold.Carrying.IsNone) mode = SpeedMode.Run;
@@ -972,7 +975,12 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
             {
                 // One already off every surface near its height (a stale height) is not held there: it steps down onto what is below.
                 if (!stands) stands = walk.TryStand(x, z, p.Position.Y, out y);
-                if (stands || !walk.IsWalkable(p.Position.X, p.Position.Z, p.Position.Y) && walk.IsWalkable(x, z))
+                // One off the walkable surface (in the hole a cage or other obstacle cuts in the navmesh, where a prisoner stands when it gets out) walks on toward its
+                // waypoint, the nearest mesh point (docs/game/pathfinding.md "A walker off the mesh"), keeping its height until it is back on the mesh.
+                bool offMesh = !stands && !walk.IsWalkable(p.Position.X, p.Position.Z, p.Position.Y);
+                if (offMesh && !walk.IsWalkable(x, z) && aim is { } wp && Vector2.DistanceSquared(new Vector2(x, z), wp) < Vector2.DistanceSquared(new Vector2(p.Position.X, p.Position.Z), wp))
+                    (stands, y) = (true, p.Position.Y);
+                if (stands || offMesh && walk.IsWalkable(x, z))
                 {
                     n.Position = new Vector3(x, y, z);
                     if (speed > 0.1f && !facing) n.Yaw = MathF.Atan2(dir.X, dir.Y);

@@ -79,8 +79,8 @@ Save sample (autosave of the owner's game, 51 zone files): `lock lvl` values spa
   game-speed-scaled seconds since its last full update, see [game-loop](game-loop.md#the-character-update-budget)) to the accumulator. When it passes the
   next-roll time it resets to 0 and rolls `rand() < p`: success clears the locked flag; failure draws the next interval uniform
   in [5, 20] s. The first roll comes after 5 s. Expected time to open is therefore about `5 + 12.5 x (1/p - 1)` s.
-- **Animation**: the cage functionality's `animation lockpick` when imprisoned, else `medic` (`crawl use` when crawling),
-  played at speed `clamp(0.01 x skill, 0.55, 2.0)` (**Verified**, speed is cosmetic: it does not change the roll timing).
+- **Animation**: the cage functionality's `animation lockpick` when imprisoned (`medic` when it lists none), else `medic` (`crawl use` when crawling),
+  played at speed `clamp(0.01 x skill, 0.55, 2.0)`; shackle picking and cutting play the same (**Verified**, [animation](../animation.md#lockpicking); speed is cosmetic: it does not change the roll timing).
 - **XP** (`FUN_1408c62e0`, **Verified**): after each roll, stat 37 gains `k x map[37] x ((101 - stat) / 101)^2` with
   `k = 1.2` on success, 0.24 on failure. The lock level is passed but unused.
 - **Bar** (**Verified**, Task_PickLock slot 2 `FUN_140359160`): each update sets the task's floating bar
@@ -250,6 +250,9 @@ Same targets as picking; Task_CutLock / Task_BruteForceLock share the shackle ta
   `CharacterRenderer` (`CreateRotationY(yaw)`) have it. The `cage1.mesh` (Prisoner Cage part `Cannibal Camp Cage`) lock box is a vertex cluster on its +Z wall (x ~ +4, z ~ +7, mid height; **Observed** from vertex positions),
   and the Spiked Cage's `Cage_LOCK-ext-Node001` (5.6, 0, 13) looks along -Z (node yaw -85 deg, minus 90) at it: the door is on local +Z, so a prisoner faces the door. The part's `offset Z` (12) belongs to a
   `is for position marker` part: it places the building's position marker (where characters use the cage), not the mesh. The mesh and the occupant both sit at the origin.
+- **Walking out**: a cage is a hole in the navmesh (`Prisoner Cage` `path mode` 1, which behaves as OBSTACLE: [pathfinding](pathfinding.md)), and the occupant stands at the cage's
+  origin, so whoever gets out starts off the mesh and walks to the nearest mesh point (**Observed**, `meitou-tools navmesh --town Rebirth`: the Rebirth cage at -47949,-56267 cuts a
+  ~15-unit square, a path from its centre starts 7 units away at its edge). How the original's agent leaves the hole is **Unknown**; Meitou walks straight out ([pathfinding](pathfinding.md), "A walker off the mesh").
 - **Locked cage**: the occupant cannot leave; `Get out of cage` (133, 207) needs `!isDoorLocked`; tooltip shows the lock level
   or "The cage you are in is UNLOCKED. Nobody knows this but you" (`FUN_1405d4260`).
 - **Leaving** (`Task_GetOutOfCage`, `FUN_1403554b0`, **Verified**): restores AI flags and pose. The task's constructor flag (`+0x80`; 1 for 207 and 256, 0 for 133, the task factory `FUN_14032ebd0` and `FUN_140335200`) is copied to the prisoner's
@@ -349,8 +352,8 @@ the others start empty but for the town's [artifacts](economy.md#artifacts) (wha
 character to one (`OpenContainerOrder`, reach 20) and opens a storage window at the left edge, vertically centred (as a machine's, [simulation](../simulation.md)), staying open until the player closes it (asking for the same container again reopens it, also while paused); the character's inventory opens beside it for an order-driven container and not when a storage or rock is merely selected (the original has no walk-away test; an opener who is down or gone closes it); the player's own locked one refuses
 ("It's locked."). Another faction's: pointer `lockpick` while locked, else `scavenge` (`search` for own or unowned ones); a locked one with Alt sends the walker to pick it (76 PICK_LOCK), without Alt "Hold down the ALT key to pick the lock." and a walk to it, as the original's right-click path (`FUN_1407fc6e0`); what is taken from it is marked stolen from its owner after the pending crime and the steal roll (`CrimeSystem.Steal`, [simulation](../simulation.md#crimes-and-bounties); caught, the item stays). A building shop's stock containers each show their own part of the shop's stock (a rectangle of it, `Shop.ForBuilding`, `PlayerSystem.GridOf`; engine choice for where the original's containers keep it), its other containers their own contents: taking from a stock one is the theft of any other faction's container (the item is marked stolen from the container's owner), putting into it is refused ("That stock is the shop's."); without Alt another faction's gets the original's "Hold down the ALT key to steal items" and a walk, the menu's Loot (and Alt) steals at once. Items move with
 `PutInMachine` / `TakeFromMachine` addressed by the fixture id, within 60 of it ("Out of trading range.", [economy](economy.md#trading-range)). Contents are saved in Meitou's own GAMESTATE_BUILDING string `meitou container <layout index>` (the index of the fixture id; JSON list of items with cell, quality, level,
-material, maker, charge, the unique flag when set and a bag's contents; absent while empty; `Locks/ContainerSave.cs`), the original's interior ids being unmapped. Like the locks, only into building states the
-save already holds (zones visited), and the original ignores the key (**Unverified**). A lock on a stored shackle and prosthetic wear are not kept.
+material, maker, charge, the unique flag when set, a shackle's lock (`Lk`: the four item lock keys below, same load rule) and a bag's contents; absent while empty; `Locks/ContainerSave.cs`), the original's interior ids being unmapped. Like the locks, only into building states the
+save already holds (zones visited), and the original ignores the key (**Unverified**). Prosthetic wear is not kept there.
 
 ## Player orders on locks
 
@@ -368,7 +371,8 @@ suffix `i`: `state<i>`, `doa<i>`, `broken<i>`, `gatecode<i>`, `wants lock<i>`, a
 A machine (UseableStuff, e.g. a safe) writes its own `broken` after its base class's lock keys (`StorageBuilding::vfunc_17` `FUN_1402a14b0` calls `DoorStuff::vfunc_17` first,
 **Observed** by decompile), so the machine's flag wins the shared key and is read back into both; Meitou writes in the same order (`BuildingSave`, then `MachineSave`).
 Shackles: the item's INVENTORY_ITEM_STATE record carries the same four keys (`LockedArmour` vfunc 75 writes, 76 reads through
-`uses_locked_hardness`, **Observed**), with the same load rule.
+`uses_locked_hardness`, **Observed**), with the same load rule, worn or not (the writer is the item's own). Meitou writes them on every item with a lock: a character's inventory, a machine's
+grid and a loose item (INVENTORY_ITEM_STATE / ITEM records) and its own container and shop JSON (`Lk`).
 
 ## Unknown
 
