@@ -46,14 +46,27 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     /// <summary>Speed in units/s of a repulsion of magnitude 100 (engine choice).</summary>
     public const float SeparationStrength = 0.15f;
     public const int MaxSeparationContributions = 26;
+    /// <summary>
+    /// The height difference within which another character is in a walker's way (separation, body contact, a covered goal or corner): the original's flocking list takes those
+    /// within 20 up (<c>FUN_14085a070</c>, docs/game/pathfinding.md "Bodies in the way"); taken both ways here (engine reading).
+    /// </summary>
+    public const float FlockHeight = 20;
     /// <summary>The share of the footprint radius a body is solid over (engine choice: 2.4 units for a human, about half the shoulders' width).</summary>
     public const float BodyShare = 0.6f;
+    /// <summary>
+    /// The least sideways share of its speed a path walker keeps when it touches a body nearly straight ahead (<see cref="Blocked"/>; engine choice, about 15 degrees): less, and it
+    /// steps to its own right by that share, so two walking the same line from opposite ends pass instead of standing nose to nose.
+    /// </summary>
+    public const float PassShare = 0.25f;
     /// <summary>A character within this distance of a waypoint has reached it.</summary>
     public const float ArriveRadius = 10;
     /// <summary>
-    /// How near (units) a walker comes to a corner it may not cut (<see cref="CanCut"/>) before it turns for the next waypoint (engine choice: about a step).
+    /// Within this distance (units) of a corner it may not cut (<see cref="CanCut"/>) a walker slows to land on the corner in its next step, and turns for the next waypoint only
+    /// from the corner itself (<see cref="OnCorner"/>; engine choice).
     /// </summary>
     public const float CornerReach = 2;
+    /// <summary>How near a corner it may not cut counts as standing on it (engine choice: float slack of a step that lands on it).</summary>
+    public const float OnCorner = 0.05f;
 
     /// <summary>
     /// Whether a walker at <paramref name="from"/> can step straight toward <paramref name="to"/> for <see cref="ArriveRadius"/> units, its height carried on as each step's is: a corner
@@ -113,6 +126,8 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     /// and the order (engine choice: from a slightly different spot the path can start elsewhere, docs/game/pathfinding.md "Own builder").
     /// </summary>
     public const int BlockedRepathLimit = 3;
+    /// <summary>How far (units) from where it was last stopped a walker must reach a waypoint for <see cref="BlockedRepathLimit"/>'s count to start again (engine choice: half <see cref="ArriveRadius"/>).</summary>
+    public const float BlockedProgress = ArriveRadius * 0.5f;
 
     public PathService Paths { get; } = paths;
 
@@ -811,15 +826,19 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                     last = n.PathCursor == cold.Path.Length - 1;
                     closing = last && cold.ArriveWithin > 0 && dist <= ArriveRadius;
                     // The last point taken by another body: the walker stops short instead of pushing in (the original's agent, FUN_1401476f0).
-                    bool occupied = last && cold.ArriveWithin <= 0 && dist <= ArriveRadius && GoalOccupied(world, i, waypoint);
+                    bool occupied = last && cold.ArriveWithin <= 0 && dist <= ArriveRadius && GoalOccupied(world, i, waypoint)
+                        // A corner another body stands on is passed from half the arrive radius (engine choice): the walker cannot come within CornerReach of it.
+                        || !last && dist <= ArriveRadius * 0.5f && GoalOccupied(world, i, waypoint);
                     reached = occupied || dist <= (last ? cold.ArriveWithin > 0 ? cold.ArriveWithin : FinalArrive : ArriveRadius * 0.5f)
-                        && (last || dist <= CornerReach || CanCut(walk, p.Position, cold.Path[n.PathCursor + 1]))
+                        && (last || dist <= OnCorner || CanCut(walk, p.Position, cold.Path[n.PathCursor + 1]))
                         // A corner the agent's velocity has carried past (it turns at its acceleration, not at once) is behind it, not circled.
                         || !last && dist <= ArriveRadius && to.X * p.Velocity.X + to.Y * p.Velocity.Z < 0;
                     if (reached)
                     {
                         n.PathCursor++;
-                        if (cold.BlockedRepaths != 0) cold.BlockedRepaths = 0;
+                        // Only a waypoint reached away from where it was last stopped resets the count: a new path's first point is where the walker stands, so reaching
+                        // it is no progress, and a walker stopped on its very next step would ask again for good (engine choice).
+                        if (cold.BlockedRepaths != 0 && Vector2.DistanceSquared(new Vector2(p.Position.X, p.Position.Z), cold.BlockedAt) > BlockedProgress * BlockedProgress) cold.BlockedRepaths = 0;
                         if (last) finished = true;
                     }
                 }
@@ -844,6 +863,9 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                     if (cold.Medical is { Crawling: true } && cold.CarriedBy.IsNone) desired = Bodies.Speed.Crippled;   // the final override, after water and sneaking
                     // Braking into the last point, never past it.
                     if (last) desired = MathF.Min(desired, MathF.Min(MathF.Sqrt(2 * PathAcceleration(cold) * dist), dist / dt));
+                    // Within CornerReach of a corner it may not cut, it steps onto the corner itself, not past it (engine choice): a path pulled along a wall or zone-border edge
+                    // leaves no ground beside the line, so turning from even a unit off the corner walks into nothing.
+                    else if (dist <= CornerReach) desired = MathF.Min(desired, dist / dt);
                 }
                 // On the provisional part of a long route: ask again (the zones ahead may have loaded), following this one until the answer comes.
                 if (n.PathCursor >= cold.PathExact) Reroute(world, ref n, cold);
@@ -942,6 +964,8 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                 {
                     if (other == s.Self || s.Count >= MaxSeparationContributions) return;
                     var all = s.Table.Previous;
+                    // Only bodies on its own level: the flocking list takes those within 20 in height (docs/game/pathfinding.md "Bodies in the way"), not a sleeper on the storey above.
+                    if (MathF.Abs(all[s.Self].Position.Y - all[other].Position.Y) > FlockHeight) return;
                     var d = new Vector2(all[s.Self].Position.X - all[other].Position.X, all[s.Self].Position.Z - all[other].Position.Z);
                     float len = d.Length();
                     if (len >= SeparationRadius) return;
@@ -956,7 +980,7 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
             bool seated = Seated(n, cold);
             // A steering fighter keeps it too: its repulsion is too weak to keep bodies apart in a crowd, and without it Contact shoves back out what the steering walks in.
             if (closing || seated) push.Sum = Vector2.Zero;
-            var drive = closing || seated ? dir * speed : Blocked(world, cold, ref push, new Vector2(p.Position.X, p.Position.Z), dir * speed);
+            var drive = closing || seated ? dir * speed : Blocked(world, cold, ref push, new Vector2(p.Position.X, p.Position.Z), dir * speed, agentWalk && !cold.InCombat);
             var step = (drive + push.Sum * SeparationStrength) * dt;
             var shove = closing || seated ? Vector2.Zero : Contact(world, i, cold, ref push, new Vector2(p.Position.X, p.Position.Z) + step);
             step += shove;
@@ -982,6 +1006,7 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                 {
                     // Blocked on the provisional part of a long route (the terrain-only route met a wall or a building): stand and ask again.
                     // Blocked on its navmesh part: ask again from where it stands a few times before giving up.
+                    if (n.PathCursor < cold.PathExact) cold.BlockedAt = new Vector2(p.Position.X, p.Position.Z);
                     if (n.PathCursor >= cold.PathExact ? ++cold.ProvisionalBlocked <= ProvisionalBlockedLimit : ++cold.BlockedRepaths <= BlockedRepathLimit)
                     {
                         speed = 0;
@@ -1081,14 +1106,18 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
 
     /// <summary>
     /// The velocity a character steps by without the part of it into a standing body it already touches (engine choice), so the ranks behind a blocked one do not press it
-    /// into those in front and a crowd does not squash; what is left slides it round them. The bodies counted are <see cref="Contact"/>'s.
+    /// into those in front and a crowd does not squash; what is left slides it round them. The bodies counted are <see cref="Contact"/>'s. A path walker out of a fight
+    /// (<paramref name="passBy"/>) whose slide round a body is under <see cref="PassShare"/> of its speed (the body nearly straight ahead) slides to its own right at that share
+    /// (engine choice): paths are pulled tight through the same corners, so two walking one stair or lane from opposite ends meet exactly nose to nose, where nothing is left to
+    /// slide by and both stood for good (**Observed**, Hub, issue #138).
     /// </summary>
-    static Vector2 Blocked(World world, CharacterCold cold, ref SeparationState near, Vector2 at, Vector2 drive)
+    static Vector2 Blocked(World world, CharacterCold cold, ref SeparationState near, Vector2 at, Vector2 drive, bool passBy)
     {
         if (drive == Vector2.Zero || !cold.CarriedBy.IsNone) return drive;
         var table = world.Characters;
         var all = table.Previous;
-        float mine = BodyRadius(cold);
+        float mine = BodyRadius(cold), wanted = drive.Length();
+        var right = new Vector2(drive.Y, -drive.X) / wanted;
         for (int k = 0; k < near.Count; k++)
         {
             int other = near.Near[k];
@@ -1100,7 +1129,13 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
             if (len >= mine + BodyRadius(them) || len < 1e-4f) continue;
             var normal = d / len;
             float into = -Vector2.Dot(drive, normal);
-            if (into > 0) drive += normal * into;
+            if (into <= 0) continue;
+            drive += normal * into;
+            if (!passBy) continue;
+            var side = new Vector2(-normal.Y, normal.X);
+            if (Vector2.Dot(side, right) < 0) side = -side;
+            float along = Vector2.Dot(drive, side);
+            if (MathF.Abs(along) < PassShare * wanted) drive += side * (PassShare * wanted - along);
         }
         return drive;
     }
@@ -1109,11 +1144,12 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     /// <summary>Whether another standing character's footprint covers <paramref name="goal"/> (last tick's positions).</summary>
     static bool GoalOccupied(World world, int self, Vector3 goal)
     {
-        var state = new OccupiedState { Table = world.Characters, Self = self, Goal = new Vector2(goal.X, goal.Z) };
+        var state = new OccupiedState { Table = world.Characters, Self = self, Goal = new Vector2(goal.X, goal.Z), Height = goal.Y };
         world.Grid.Query(goal.X, goal.Z, 30, ref state, static (int other, ref OccupiedState s) =>
         {
             if (s.Found || other == s.Self || !s.Table.Previous[other].Alive || s.Table.Cold(other) is not { CarriedBy.IsNone: true } c || c.Medical is { Incapacitated: true }) return;
             var at = s.Table.Previous[other].Position;
+            if (MathF.Abs(at.Y - s.Height) > FlockHeight) return;
             float r = Combat.CombatTuning.Footprint(c);
             if (Vector2.DistanceSquared(new Vector2(at.X, at.Z), s.Goal) < r * r) s.Found = true;
         });
@@ -1125,6 +1161,7 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
         public CharacterTable Table;
         public int Self;
         public Vector2 Goal;
+        public float Height;
         public bool Found;
     }
 
