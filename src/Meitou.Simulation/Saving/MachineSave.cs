@@ -21,12 +21,21 @@ public static class MachineSave
     /// <summary>The item furnace's input section (<b>Verified</b>, <c>FurnaceBuilding::setupFromData</c>), Meitou's storage grid of a furnace.</summary>
     const string FurnaceSection = "in1";
 
-    /// <summary>Writes every machine into its building's state (after <see cref="BuildingSave.Write"/>).</summary>
-    public static void Write(SaveGame game, World world)
+    /// <summary>
+    /// Writes every machine into its building's state (after <see cref="BuildingSave.Write"/>). An NPC town machine writes only its production and farm keys into its level building's
+    /// state in <paramref name="states"/> (<see cref="HeldSave.BuildingStates"/>, by building key; none: made here), as the original's NPC mines carry them; it holds no items.
+    /// </summary>
+    public static void Write(SaveGame game, World world, IReadOnlyDictionary<string, FcsRecord>? states = null)
     {
         if (world.Machines.Count == 0) return;
         foreach (var m in world.Machines.All)
         {
+            if (m.NpcTown)
+            {
+                states ??= HeldSave.BuildingStates(game);
+                if (states.TryGetValue(m.Site, out var townState)) WriteKeys(townState, m, world.GameHours, town: true);
+                continue;
+            }
             if (world.Buildings.Find(m.Site) is not { } site || !game.Zones.TryGetValue(site.Zone, out var zone) || zone.BuildingList is not { } list) continue;
             var file = zone.File;
             var state = file.Records.FirstOrDefault(r => r.StringId == site.Id + StateSuffix && r.RecordType == FcsRecordType.GAMESTATE_BUILDING);
@@ -53,14 +62,17 @@ public static class MachineSave
         }
     }
 
-    static void WriteKeys(FcsRecord state, Machine m, double gameHours)
+    static void WriteKeys(FcsRecord state, Machine m, double gameHours, bool town = false)
     {
         state.Floats["resource mult"] = m.Yield;
-        // The power keys (Observed, vfunc_17/18 of the building classes FUN_1402a14b0 / FUN_1402a1750).
-        state.Bools["power on"] = m.PowerOn;
-        state.Bools["gets battery"] = m.GetsBattery;
-        state.Bools["broken"] = m.Broken;
-        if (m.Data.IsBattery) state.Floats["batterycharge"] = m.Charge;
+        // The power keys (Observed, vfunc_17/18 of the building classes FUN_1402a14b0 / FUN_1402a1750); an NPC town machine leaves its level state's as they are (it has no grid).
+        if (!town)
+        {
+            state.Bools["power on"] = m.PowerOn;
+            state.Bools["gets battery"] = m.GetsBattery;
+            state.Bools["broken"] = m.Broken;
+            if (m.Data.IsBattery) state.Floats["batterycharge"] = m.Charge;
+        }
         if (m.Output is { } o) state.Floats["production amount"] = o.Progress;
         for (int k = 0; k < m.Inputs.Length; k++) state.Floats["consumption amount-" + k.ToString(CultureInfo.InvariantCulture)] = m.Inputs[k].Level;
         if (m.Data.IsFurnace) state.Floats["consumption amount-0"] = m.BurnLevel;   // its one input, the burn level
@@ -161,6 +173,11 @@ public static class MachineSave
                     if (fits || grid.Add(item) is false && item.Quantity > 0) grid.Items.Add(item);
                 }
         }
+        // The NPC towns' producers and farms whose state carries production keys (the original's NPC mines, docs/game/buildings-production.md "Resources"): their machines, read back.
+        foreach (var (key, state) in states)
+            if ((state.Floats.ContainsKey("production amount") || state.Floats.ContainsKey("resource mult") || state.Floats.ContainsKey("plant growth")) && world.Buildings.Find(key) is null
+                && production.EnsureTown(world, key) is { NpcTown: true } town)
+                ReadKeys(state, town);
         world.Machines.Touch();
     }
 

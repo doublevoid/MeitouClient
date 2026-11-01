@@ -714,6 +714,7 @@ public sealed partial class AiSystem(PopulationData data, AiSettings? settings =
             mind.WorkEpoch++;
             if (table.Cold(slot) is { } worker && mind.WorkClip is not null && worker.ActionClip == mind.WorkClip) worker.ActionClip = null;
             mind.WorkClip = null;
+            mind.WorkSite = null;
         }
         mind.FollowTarget = CharacterId.None;   // set again below for a follow goal aimed at the squad's mission
         ref var n = ref table.Next[slot];
@@ -843,13 +844,17 @@ public sealed partial class AiSystem(PopulationData data, AiSettings? settings =
                 {
                     if (mind.WorkActive) mind.WorkEpoch++;
                     mind.WorkActive = true;
+                    mind.WorkSite = null;
                     if (PickWork(world, table.IdOf(slot), board.Town, mind.WorkEpoch) is { } building)
                     {
                         mind.Target = new Vector3(building.Position.X, float.NaN, building.Position.Z);
                         mind.WorkClip = WorkClipOf(building);
                         mind.WorkHungerRate = WorkHungerRateOf(building);
+                        mind.WorkSite = building.Key;
                     }
                 }
+                // 189 acts out as the real operating (87), 190 as the pretend one (221).
+                mind.WorkReal = type == TaskType.AUTO_LABOURING_MINES;
                 if (mind.Target is not { } working) Become(world, slot, CharacterTask.Idle);
                 else if (GoToSpot(world, slot, mind, Flat(working), GiveUp.Target, SpeedMode.Walk, WorkReach))
                 {

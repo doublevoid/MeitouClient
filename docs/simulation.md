@@ -658,7 +658,7 @@ bag on, DA 48 sells them, and the context menu's Follow keeps any player charact
 ([animals](game/animals.md#ageing)). Player animals feed themselves: food on the ground (259, `FeedSystem.GroundFood`), food from their outpost's stores
 (243, also for people, `TownDutySystem.FoodWant`, [rules](game/character-stats.md#eating); both decision-step goals for player characters) and their race goals: limbs (277), limb play and chase
 (278, 279) and eating downed non-allies (233) as [captive jobs](#captives) (`CaptiveSystem.RaceGoals`: decision-step goals, priority 3 at step 4, 233 priority 2 at step 6, by the original's desires x the entry's weight), ended by an order that runs. Corpses (230) are dropped from the player's animals by the original;
-crops (232) find nothing for them (only the player's farms are machines, and the eater must not get along with the town). Unarmed humans use
+crops (232) find nothing for them (only player towns' farms are raided, and the eater must not get along with the town). Unarmed humans use
 martial-arts category 5. [animals.md](game/animals.md), [characters.md](characters.md).
 
 ### Hostility and relations
@@ -1085,7 +1085,7 @@ failed walks mark the cage unreachable for the faction; its own faction's shut d
   200, which the pick-up takes into its mouth; 278 (a mouthful, not a player squad's adult over 0.95) sprints in random 1000-1400 legs while it holds it; 279 (any NPC animal, a player
   squad's only under 0.95) runs after the first allied animal in sight with something in its mouth. Engine: the play's first leg is random too.
 - **Crop raiding** (232, `CaptiveJobKind.EatCrops`): in a player town whose faction is its enemy (engine reading of the coexist test), a random farm with food; at it, `eat`, crime
-  14 each tick, one plant per game second (`ProductionSystem.EatCrop`). NPC towns' farms are not machines in Meitou, so only the player's are eaten.
+  14 each tick, one plant per game second (`ProductionSystem.EatCrop`). Only player towns' farms are eaten (the raider's town test).
 - **Escapes** (`LockSystem.OpportunisticEscapes`, `ShackleEscapes`): an AI prisoner whose role list holds 256 or 202 in its hours walks out of a cage that is not locked
   (`FixtureRegistry.GetOut`); every 30 ticks an AI character outside a cage wearing locked shackles with 202 listed works them off, cutting with a tool, else picking (the
   original planner's choice among pick, cut and break is **Unknown**); once they are unlocked it takes the worn shackles off (219) into its inventory (else the ground; engine choice).
@@ -1093,7 +1093,7 @@ failed walks mark the cage unreachable for the faction; its own faction's shut d
   seconds (engine pacing).
 - **Work** (189, 190; `AiBehaviour.Work` in the AI, not a job: it competes by score like any goal): a worker of a town with a mine, research bench, refinery or crafting bench (BuildingFunction 1, 3, 4,
   10) walks to a random one (a pick of the character and `AiMind.WorkEpoch`, kept while it works there) to within 30 units, faces it and plays its functionality's clip (`stonemine` by default) as
-  `ActionClip`. NPC towns run no machines here, so nothing is produced (their buildings are level data, not `Machine`s, and Meitou has no NPC-town production); the worker does take the building's `hunger rate` (`AiMind.WorkHungerRate`). **Observed** (probe, Rebirth, real data): 35 workers, slaves among them, stand at the mines of the Holy Nation's towns by day.
+  `ActionClip`, and takes the building's `hunger rate` (`AiMind.WorkHungerRate`). At it, a 189 worker operates the building's [NPC town machine](#production) (`AiMind.WorkSite`, `WorkReal`); 190 (pretend) makes nothing. **Observed** (probe, Rebirth, real data): 35 workers, slaves among them, stand at the mines of the Holy Nation's towns by day.
 - **Obedient Slave** (187, [facts](game/ai-tasks.md#slave-work-shout-and-capture)): for the AI's slaves the Slave role list of the owner's squad, which slave members already run; a slave in another squad runs the list of `CharacterCold.SlaveMaster`.
   **A player character** has the job in its list (`Kidnap/ObedientSlave.cs`, `CaptiveSystem`): `FixtureRegistry.SetSlave` (every route to slave state 1: sale, arrest, processing, a cage, a delivery) destroys its jobs and order
   queue and adds the job toward the master squad's leader (`CharacterCold.SlaveMaster`; handing a slave to another master resets it, engine choice), and removes it when the state leaves 1 (freed, escaped, bail).
@@ -1114,10 +1114,7 @@ failed walks mark the cage unreachable for the faction; its own faction's shut d
   waits for it to load (`PopulationSystem.ShippingCamp`); a save's travelling platoon not made yet ships too, its slaves read from the save (slave role, `slavestate` 1), to the nearest
   such camp (the save's mission town is not read). Not
   shipped off screen: wild ones (a save's homeless platoons and the squads `KeepWild` keeps), which their sector makes again where they stood, so they stay there as other wild squads.
-- Not built: goal 112 as such (captives are carried by the kidnapping system), short-term tag 6 of the strip, and the real operation of NPC town machines by
-  workers: it would need a `Machine` (recipe, input and output inventories, progress) for every level building with a functionality, made when its town registers, and their
-  states written into the zone files' GAMESTATE_BUILDING as the original's are; production would also feed the shops' stock, whose origin from machines is **Unknown**. Left out
-  for now: workers act out the work (clip, hunger rate) with no output.
+- Not built: goal 112 as such (captives are carried by the kidnapping system) and short-term tag 6 of the strip. NPC town production feeds no shop stock (its origin from machines is **Unknown**).
 
 ## Buildings
 
@@ -1334,7 +1331,7 @@ ghost, commands), `Building/PlacementCheck.cs`, `Building/BuildMenu.cs` (categor
 ## Production
 
 `Production/ProductionSystem` runs the player's complete buildings: mines, wells, refiners (function 4), farms, research and
-crafting benches, generators and batteries. Facts: [production](game/buildings-production.md#production), [crafting](game/buildings-production.md#crafting),
+crafting benches, generators and batteries; and NPC towns' producers and farms (below). Facts: [production](game/buildings-production.md#production), [crafting](game/buildings-production.md#crafting),
 [farming](game/buildings-production.md#farming), [research](game/buildings-production.md#research), [power](game/buildings-production.md#power).
 - **Machines** (`Production/Machines.cs`, data `Construction/MachineData.cs`). A machine is made when a player site completes
   or loads complete, and dropped with the site; its items fall on the ground. It holds:
@@ -1363,8 +1360,7 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   yields `ResourceField.NodeYield` (at least 0.1) and is kept in memory, not saved; a saved job keeps the id (`meitou pjob<i>`). The ore stays in
   the rock's output (5) until taken: a left click selects the rock and opens its machine window once it has been mined (**Observed** by the
   owner: the base game's ore is picked up by hand), or a storage within `HaulRange` takes it as for any machine. Engine choices: the rock is picked by its mesh's triangles where the instance places them (the original picks its building's collision); its radius, the longest half-extent of the mesh's bounds box scaled by the instance and at least `NodeRadius` 25, sizes its resource richness (the original takes the mesh's bounds the same way); without the mesh file a rock is picked as a sphere of 25 round its origin; the pointer over a rock is `mine` (with characters selected, after sites and doors, as the click order is); level-placed `is foliage`
-  buildings (not drawn, not in `FoliageResourceNodes`) cannot be mined. NPC town mines are not run (the original's make output while NPCs
-  operate them).
+  buildings (not drawn, not in `FoliageResourceNodes`) cannot be mined.
 - **Items.** `PutInMachine` and `TakeFromMachine` move items between a character within 40 of the building's footprint and the machine:
   inputs, output, or storage cells.
 - **Research** (`Construction/ResearchState`). A queue paid at queue time from the benches' storage; a paid id is never
@@ -1374,20 +1370,33 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   - Partial progress is kept off the queue (in memory only).
   - Blueprints ([rules](game/buildings-production.md#blueprints)): `GameDatabase.AddGearBlueprints` makes the `.TECH.1` research after loading;
     `ItemFactory.Blueprint` makes the item (type `BLUEPRINT`); the own-window right click (`HeldItems.QuickMove`) calls `ProductionSystem.Learn`.
-- **Hash.** Machines and research join the world hash only once the player has one; golden hashes are unchanged. Yields read the
+- **NPC town machines** (`ProductionSystem.Towns.cs`; facts: [production](game/buildings-production.md#production), [NPC mines](game/buildings-production.md#resources)).
+  The level buildings of NPC towns whose BUILDING is a producer (mine, well, refinery, rain collector) or a farm, not ruins or `is foliage` rocks, get a machine keyed by their
+  building key once their zone is first in `World.ActiveZones` (the original has building objects in active zones only); it then stays and runs by `Live`. Its site is made from the
+  level data (`Machine.TownSite`, owner: a bought property's, the placement's `owner faction ID`, else the town's), so the yield's 0.5 rule applies. As the original's update tests no owner, it runs
+  as the player's: farms grow, automatic machines work alone, status clears, and a worker of goal 189 standing at it at its clip operates it at its skill factor (training the stat), up to
+  `max operators`. Player-only gates stay: no orders, jobs, hauling, windows, HUD or richness line (not published, not in the registry), no research upgrade (default 1), no power grid
+  (power 1, engine choice as NPC turrets). Engine choices: it keeps no output (the count goes to 0 as soon as an item is made; NPC mines in saves hold progress, never items,
+  **Observed**); an NPC farm counts as watered in the live tick (the catch-up already ignores its water, **Verified**; the original's live rule is **Unknown**); NPC farms are not drawn
+  growing; inputs are never filled, so NPC refineries make nothing. An owned town house the registry holds gets the player's machine instead. Save: the production and farm keys
+  only (`resource mult`, `production amount`, `consumption amount-<k>`, farm keys) into the building's state, no items or power keys; a load makes the machine of every NPC town
+  building whose state has `production amount`, `resource mult` or `plant growth` and reads them. Cost: one index of the towns' buildings on first use; per tick each NPC machine
+  joins the existing machine loops (a farm also its plant loop) and each character one extra cold read; no per-tick allocation, and the published list is not rebuilt for NPC machines alone.
+- **Hash.** Machines and research join the world hash only once the player has one or an active zone has an NPC town machine; worlds with neither hash as before. Yields read the
   biome map and rock source, so a replay without them (headless) hashes other yields than the host.
   RNG: `RngPurpose.Farm` (replanting, harvest rolls), `RngPurpose.Craft` (critical rolls).
 - **Crafting** (`ProductionSystem.Crafting.cs`, data `Construction/CraftingData.cs`). `QueueCraft` (at most 20),
   `CancelCraft`, `RepeatCrafts`. The first craft binds the input sections to its ingredients (other items in a section
   fall on the ground); finished items wait in the output (section `out`) up to the option's store, then the bench reports
-  output full. Benches listing fewer `consumes` than a recipe's ingredients get extra sections. A repeating queue puts
+  output full (*Hauling* below takes them to storage). Benches listing fewer `consumes` than a recipe's ingredients get extra sections. A repeating queue puts
   each finished craft back at its end. Crafts no research lists are always available.
 - **Research repeats.** A `repeats` research can be done repeats+1 times, each paid at `cost x repeat mult^n`.
 - **Power** (`ProductionSystem.Power.cs`). Generators (fuelled or wind), batteries and consumers are machines; each
   town (sites grouped by `Town`, 0 included) shares power as the [original](game/buildings-production.md#power) after the
   operators, so grants follow last tick's operators. The factor scales production, crafting, research and farm growth;
   research `improve buildings` (`ResearchState.Upgrades`) scales rates and adds output and capacity. Engine choices: health
-  is 1; wind generators give their blades' share of the region's wind ([rotating parts](game/buildings-production.md#rotating-parts)), loaded or not; battery mode is not saved. HUD: output, fuel use, charge,
+  is 1; wind generators give their blades' share of the region's wind ([rotating parts](game/buildings-production.md#rotating-parts)), loaded or not. An outpost's battery mode (`PlayerTown.BatteryMode`, hashed) is saved as the Meitou-only
+  `meitou battery mode` ([outposts](formats/save.md#player-outposts)); town 0's is neither saved nor hashed. HUD: output, fuel use, charge,
   "No power" / "Low power".
 - **Hauling** (`ProductionSystem.Hauling.cs`, `ProductionSettings.AutoHaul`, default on; facts in
   [buildings-production](game/buildings-production.md#hauling)). An operator at its machine first puts carried items
@@ -1395,8 +1404,16 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   carries it to the nearest player storage (function 2 or 13) that accepts it and has room; or it fetches an empty input's item from the nearest storage holding it or machine whose output holds it (a well's water for a farm). A
   storage accepts an item when `itemtype limit` matches and `limit inventory` is empty or lists it; `stackable bonus
   mult` scales its stacks. The player's drops into a storage follow the same rule ("does not take").
-  Excess fetched inputs stay with the operator. Engine choices: storage within `HaulRange` 3000 of the machine, ties
-  by site id, a fetch takes what the inputs have room for; the trip is not saved. Crafted items are not hauled.
+  Excess fetched inputs stay with the operator. A crafting bench's "full output" is its first craft stopped by the finished
+  items it holds (the option's store): the operator then takes the finished items a storage takes and carries them, and any
+  carried item the bench crafts, off the same way. Engine choices (the original's rule is
+  [Unknown](game/buildings-production.md#hauling)): storage within `HaulRange` 3000 of the machine, ties
+  by site id, a fetch takes what the inputs have room for, crafted items count by record whatever their quality or model,
+  items holding an inventory (backpacks) are never taken. A save keeps what the hauler carries (its inventory) and the
+  operator's leg ([save keys](formats/save.md#order-queue)); after a load, the operator's next start on that machine heads
+  straight for the saved storage while it still carries what the machine makes, or for the saved source while an input has
+  room for the fetched item; otherwise it walks to the machine, which sends it off again. A Haul trip (124, the ditch) is
+  not saved: it is derived again when its job restarts, carried items first.
 - **Automatic machines** (`MachineData.IsAutomatic`, raw `max operators` 0; [facts](game/buildings-production.md#production)) produce
   every tick with nobody at them at s = 1 (producers only: refineries, mines, auto-looms, campfires), and their power demand is full. A character
   operating one (job 152, or the quick order) does not work it: it only hauls as above, every round whatever `AutoHaul` says.
@@ -1428,8 +1445,8 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   - 87 Operating machine: blocked while others hold every operator place or the machine has no work (no power; no queued research or craft; a
     farm growing with no water it holds or can get, or ripe with no plant left or no room; an empty input the operator cannot fill from its pack, a storage or a machine's output;
     a full output no storage takes). A farmer at a growing farm with water tends it: it plays the farm's clip (engine reading of task 87, [farming](game/buildings-production.md#farming)).
-  - 124 Hauling to (`CharacterTask.Haul`): the nearest player machine within `HaulRange` of the storage whose output the storage takes is
-    emptied into the hauler's pack and carried there; items the hauler already carries that some machine makes go first. Blocked with neither.
+  - 124 Hauling to (`CharacterTask.Haul`): the nearest player machine within `HaulRange` of the storage whose output, or bench whose finished items, the storage takes is
+    emptied into the hauler's pack (a bench: only the finished items the storage takes) and carried there; items the hauler already carries that some machine makes or bench crafts go first. Blocked with neither (engine choices).
   - 152 Operating automatic machine (Shift + Auto-Haul on an automatic machine; its companion 124 lands on the same machine): the operator above at the machine, hauling only.
     Blocked unless it is mid-trip for it, carries an item an input has room for, an empty input's item is in a storage, or a full or carried output has a storage that takes it
     (engine reading of the row's goal "no empty inputs", `AutoWork`). 124 on an automatic machine runs the same way, blocked unless it carries an item an input has room for.
@@ -1459,7 +1476,7 @@ crafting benches, generators and batteries. Facts: [production](game/buildings-p
   - Engine choices: the re-ask period; the injury test, the ranges, a bed's clip (`sleeponfloor`) and a seat's facing (its own, not the table it faces).
   - Saves: GAMESTATE_AI `pjob<i>` / `pjobT<i>` / `jobs` as the original, plus `meitou pjob<i>` (the site id) for a building the handle cannot
     name; the older `meitou jobs enabled` is read, not written; `chase mode` is written and read as the switch. The squad AI options are the
-    CAMERA bools ([squad AI options](game/ai-tasks.md#squad-ai-options)). A job's trip is not saved.
+    CAMERA bools ([squad AI options](game/ai-tasks.md#squad-ai-options)). A job's trip is not saved except an operator's haul leg (`meitou haul*`, Hauling above).
 - **Squad AI options** (`PlayerState.SquadAi`, the overview's AI tab, defaults as the owner's saves): Ditch, Sleep, Sit above; Heal Allies
   (the medic jobs take allied factions' patients scoring ≥ 0.1), Help Allies (`RetaliationSystem.JoinFight`: the fighters of allied factions count in
   goal 15's finder, their weight squared, [precedence](game/ai-tasks.md#precedence)), Rescue Allies (above), Share Food (`FeedSystem`: a player character with no food takes it from a squad mate's backpack within 200,

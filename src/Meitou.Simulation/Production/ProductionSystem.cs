@@ -82,6 +82,7 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
     public ProductionSystem(PopulationData data, ProductionSettings? settings = null)
         : this(data.Db, data.Bodies.Constants, data.BodyOptions, data.Items, data.Biomes, settings, data.ResourceNodes)
     {
+        towns = data;
     }
 
     public ProductionSettings Settings { get; }
@@ -111,19 +112,25 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
     /// <summary>Makes the machine of a complete site (empty, a farm freshly planted) unless it has one; <paramref name="world"/> seeds the planting.</summary>
     public Machine? Ensure(World world, BuildSite site)
     {
-        if (world.Machines.Find(site.Id) is { } existing) return existing;
+        if (world.Machines.Find(site.Id) is { } existing)
+        {
+            // An NPC town building the player's registry now holds (an owned town house) gets the player's machine in place of the town's.
+            if (!existing.NpcTown || ReferenceEquals(existing.TownSite, site)) return existing;
+            world.Machines.Remove(existing.Site);
+        }
         if (Create(world, site) is not { } m) return null;
         world.Machines.Add(m);
         return m;
     }
 
-    Machine? Create(World world, BuildSite site)
+    Machine? Create(World world, BuildSite site, bool townSite = false)
     {
         if (Data(site.Record) is not { } data) return null;
         var m = new Machine
         {
             Site = site.Id,
             Data = data,
+            TownSite = townSite ? site : null,
             Position = site.Position,
             Inputs = [.. data.Inputs.Select(i => new InputSlot(i))],
             Output = data.Output is { } o ? new OutputSlot(o) : null,
@@ -156,18 +163,19 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
     /// <summary>Machines follow the sites: a complete player site gets one, a gone site loses its own (items dropped where it stood).</summary>
     void Sync(World world)
     {
+        SyncTowns(world);
         var reg = world.Buildings;
         foreach (var site in reg.All)
-            if (site.Complete && site.Owner == world.Player.Faction && site.WallParent is null && world.Machines.Find(site.Id) is null && Data(site.Record) is not null) Ensure(world, site);
+            if (site.Complete && site.Owner == world.Player.Faction && site.WallParent is null && world.Machines.Find(site.Id) is null or { NpcTown: true } && Data(site.Record) is not null) Ensure(world, site);
         if (world.Machines.Count == 0) return;
         List<(Machine, BuildSite)>? swapped = null;
         foreach (var m in world.Machines.All)
-            if (Site(world, m.Site) is { } s && s.Record != m.Data.Id && !IsNatural(s.Id)) (swapped ??= []).Add((m, s));
+            if (!m.NpcTown && Site(world, m.Site) is { } s && s.Record != m.Data.Id && !IsNatural(s.Id)) (swapped ??= []).Add((m, s));
         if (swapped is not null)
             foreach (var (m, s) in swapped) Rebuild(world, m, s);
         List<Machine>? gone = null;
         foreach (var m in world.Machines.All)
-            if (Site(world, m.Site) is null) (gone ??= []).Add(m);
+            if (MachineSite(world, m) is null) (gone ??= []).Add(m);
         if (gone is null) return;
         foreach (var m in gone)
         {
@@ -468,6 +476,7 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
         var m = Ensure(world, site)!;
         if (request.Task == CharacterTask.Haul) StartHaulTrip(world, slot, site, m, ditch: request.Row == TaskType.DITCH_ALL_RESOURCES);
         else Begin(world, slot, site, m);
+        world.Characters.Cold(slot)!.SavedHaul = null;
     }
 
     /// <summary>An operator, hauler or prospector that another task replaces or the Stop order ends lets go of its machine, trip or progress (the task it goes back to is the new start's).</summary>
@@ -505,7 +514,8 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
         cold.Operating = false;
         cold.HaulTo = null;
         var goal = GoalOf(world, site, m);
-        if (!AtSite(n, site, m)) WalkToSite(ref n, cold, site, goal);
+        if (Resumed(world, cold, site.Id, m) is { } leg) { if (!AtSite(n, leg.Site, leg.Machine)) WalkToSite(ref n, cold, leg.Site, GoalOf(world, leg.Site, leg.Machine)); }
+        else if (!AtSite(n, site, m)) WalkToSite(ref n, cold, site, goal);
         sweep = true;
     }
 
@@ -625,7 +635,7 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
         float dt = world.TickSeconds;
         foreach (var m in world.Machines.All)
         {
-            if (m.Farm is not { } farm || Site(world, m.Site) is not { Complete: true } site || !Live(world, m)) continue;
+            if (m.Farm is not { } farm || MachineSite(world, m) is not { Complete: true } site || !Live(world, m)) continue;
             // A farm back in a loaded zone after over an hour catches up (Verified, FarmBuilding::loadFromSerialise FUN_1400e3de0).
             if (!UnloadedProduction && world.GameHours - farm.LiveHours > 1) TimeSkip(world, m, (float)(world.GameHours - farm.LiveHours), site.Owner != world.Player.Faction);
             farm.LiveHours = world.GameHours;
@@ -634,14 +644,18 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
         // A machine that takes operators clears its blocked status by itself (Verified, ProductionBuilding::vfunc_28 FUN_14029ad90, when +0x3a9 is set): output full (1) goes back to 2 once the
         // output has room, nothing to work with (0) once no input is empty. An operator's step below sets it again the same tick if it is still blocked.
         foreach (var m in world.Machines.All)
-            if (m.Data.IsProducer && !m.Data.Unattended && m.Output is { } held && Site(world, m.Site) is { Complete: true } && Live(world, m))
+            if (m.Data.IsProducer && !m.Data.Unattended && m.Output is { } held && MachineSite(world, m) is { Complete: true } && Live(world, m))
             {
                 if (m.Status == 1 && !held.Full) m.Status = 2;
                 if (m.Status == 0 && !m.HasEmptyInputs) m.Status = 2;
             }
         // An unattended machine (max operators 0, or both records negative) works with nobody at it, at skill factor 1 (Verified, ProductionBuilding::vfunc_28 calls slot 150 with no operator when +0x3a9 is clear).
         foreach (var m in world.Machines.All)
-            if (m.Data.Unattended && m.Data.IsProducer && Site(world, m.Site) is { Complete: true } && Live(world, m)) ProduceStep(world, m, 1, dt);
+            if (m.Data.Unattended && m.Data.IsProducer && MachineSite(world, m) is { Complete: true } && Live(world, m))
+            {
+                ProduceStep(world, m, 1, dt);
+                TakeTownOutput(m);
+            }
             else if (m.Data.IsFurnace && m.Storage is { } grid)
             {
                 if (m.Burning && Site(world, m.Site) is { Complete: true } && Live(world, m)) FurnaceStep(world, m, dt);
@@ -656,7 +670,12 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
             ref var n = ref table.Next[i];
             if (!n.Alive) continue;
             if (n.Task == (byte)CharacterTask.Haul) { HaulStep(world, i); continue; }
-            if (n.Task != (byte)CharacterTask.Operate) continue;
+            if (n.Task != (byte)CharacterTask.Operate)
+            {
+                // An NPC town's worker at its building, playing its work clip (goal 189's act-out, AiSystem): it operates the building's machine.
+                if (table.Cold(i) is { Ai: { WorkReal: true, WorkSite: not null, WorkClip: { } clip } mind } worker && worker.ActionClip == clip) TownWork(world, i, worker, mind, dt);
+                continue;
+            }
             var cold = table.Cold(i)!;
             if (cold.OperateSite is not { } id || Site(world, id) is not { Complete: true } site || world.Machines.Find(id) is not { } m || !Able(cold))
             {
@@ -729,7 +748,8 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
         }
         PowerTick(world, dt);
         if (research.Queue.Count > 0 && contributions > 0) research.Touch();
-        world.Machines.Touch();
+        // The host shows only the player's machines and rocks: NPC town machines alone change nothing it draws, so the published list is not rebuilt for them.
+        if (world.Machines.Shown > 0) world.Machines.Touch();
     }
 
     /// <summary>The operating XP amount of a stat (<b>Observed</b>, <c>FUN_1408c7250</c>): 0.5, stats 10 and 37 0.1, 11 1, 24 3, 35 1.2 (0.8 falling into the farming case), 12 (farming) 0.75.</summary>
@@ -896,7 +916,8 @@ public sealed partial class ProductionSystem : ITickSystem, ITaskOwner, ITaskHan
         float h = dt / (MachineData.DaySeconds / 24);
         if (m.Inputs.Length > 0 && !fd.Indoor && world.Weather?.At(m.Position.X, m.Position.Z) is { Wetness: > 0 } rain)
             m.Inputs[0].Level = MathF.Min(1, m.Inputs[0].Level + rain.Wetness * m.WaterRate * m.Inputs[0].Rate * dt * RainWaterFactor);
-        bool watered = m.Inputs.Length == 0 || DrawWater(m, dt * m.WaterRate);
+        // An NPC town's farm counts as watered (engine choice, docs/simulation.md "Production": nothing fills its water, and the original's catch-up ignores an NPC farm's water).
+        bool watered = m.Inputs.Length == 0 || m.NpcTown || DrawWater(m, dt * m.WaterRate);
         float inc = h * m.Yield * m.Power / fd.GrowthTime;
         if (!watered) inc *= fd.DroughtMultiplier;
         bool changed = false;

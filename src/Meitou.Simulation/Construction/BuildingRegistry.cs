@@ -137,6 +137,11 @@ public sealed class PlayerTown
     /// <c>FUN_140721e50</c>): a wandering trader in a public outpost stays as in a placed town instead of leaving at once. False when made (<c>FUN_140934e10</c>).
     /// </summary>
     public bool Public { get; set; }
+    /// <summary>
+    /// Whether its power grid is in battery mode (the original's Town <c>+0x470</c>: set when batteries covered a shortfall, cleared on a surplus; docs/game/buildings-production.md "Power").
+    /// Saved as the Meitou-only <c>meitou battery mode</c> of its town state; hashed.
+    /// </summary>
+    public bool BatteryMode { get; set; }
     /// <summary>The save's instance id of its town-list entry (null until a save has named it); bookkeeping for <c>Saving.BuildingSave</c>, not hashed.</summary>
     public string? SaveInstance { get; set; }
     /// <summary>The save's town handle <c>hand*</c> (null until a save has named it); not hashed.</summary>
@@ -150,6 +155,7 @@ public sealed class PlayerTown
         h.Add(Owner);
         if (Override != 0) h.Add(Override);
         if (Public) h.Add(1);
+        if (BatteryMode) h.Add(2);
     }
 }
 

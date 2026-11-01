@@ -121,7 +121,7 @@ public static partial class SaveCapture
         var outposts = data.PlayerFaction >= 0 ? BuildingSave.Write(game, world, data.Factions[data.PlayerFaction].Id, options.Seed) : new Dictionary<int, Hand>();
         // Again, with the states of the buildings first written now (job targets name them by handle).
         buildings = HeldSave.BuildingStates(game);
-        MachineSave.Write(game, world);
+        MachineSave.Write(game, world, buildings);
         world.Systems.OfType<Combat.CombatSystem>().FirstOrDefault()?.WriteTurretShots(world, buildings);
         GroundItemSave.Write(game, world, data.Items);
         var races = new Dictionary<string, RaceData?>(StringComparer.Ordinal);
@@ -453,7 +453,11 @@ public static partial class SaveCapture
             SlaveSave.Write(g, cold, data);
             DialogueSave.Write(g, cold);
             if (orders) Orders.Write(g, cold);
-            if (orders && sc.Ai is { } ai) PermaJobSave.Write(ai, cold, world.Buildings, buildings, who => world.Characters.TryResolveNext(who, out int target) && world.Characters.Cold(target)?.Save is { } link2 ? link2.Source.Handle : Hand.Null);
+            if (orders && sc.Ai is { } ai)
+            {
+                PermaJobSave.Write(ai, cold, world.Buildings, buildings, who => world.Characters.TryResolveNext(who, out int target) && world.Characters.Cold(target)?.Save is { } link2 ? link2.Source.Handle : Hand.Null);
+                HaulSave.Write(ai, cold);
+            }
             if (orders && sc.Ai is { } queueAi)
                 OrderSave.Write(queueAi, cold, world, buildings, (record, prefix, who) =>
                 {

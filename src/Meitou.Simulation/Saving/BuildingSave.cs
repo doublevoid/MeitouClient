@@ -118,6 +118,7 @@ public static class BuildingSave
             var town = world.Buildings.AddTown(instance.Position, playerIndex, name);
             town.SaveInstance = instance.Id;
             town.Public = state.Bools.GetValueOrDefault("public");
+            town.BatteryMode = state.Bools.GetValueOrDefault(BatteryModeKey);
             var hand = Hand.Read(state, "hand");
             if (!hand.IsNull)
             {
@@ -315,6 +316,7 @@ public static class BuildingSave
                 state.Strings["replacementTown"] = "";
             }
             state.Bools["public"] = town.Public;   // Town +0x380, the panel's Open to public
+            state.Bools[BatteryModeKey] = town.BatteryMode;   // Meitou-only: Town +0x470, which the original does not write
             hand.Write(state, "hand");
             state.Strings["faction"] = playerFactionId;
             state.Strings["instance"] = instance.Id;
@@ -326,6 +328,8 @@ public static class BuildingSave
     }
 
     const string TownStatePrefix = "Town state ";
+    /// <summary>Meitou-only bool on an outpost's town state: its grid's battery mode (<see cref="PlayerTown.BatteryMode"/>).</summary>
+    const string BatteryModeKey = "meitou battery mode";
     const string TownStateSuffix = "-S5e";   // the hex of GAMESTATE_TOWN (94)
     /// <summary>A town without a material of its own uses this one (docs/formats/zones.md "Materials"; the template has none).</summary>
     const string DefaultTownMaterial = "742-gamedata.base";
