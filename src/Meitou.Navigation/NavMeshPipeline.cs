@@ -34,7 +34,8 @@ internal static class NavMeshPipeline
         for (int i = 0; i < built.Length; i++)
             if (built[i].PolygonCount > 0) nonEmpty.Add(new InteriorMesh(built[i], geometries[i].InteriorOf, geometries[i].InteriorDoorless, geometries[i].InteriorDestroyed));
         interiorMeshes = nonEmpty;
-        var combined = NavInteriors.Combine(exterior, nonEmpty, log);
+        var sealedJoin = settings.JoinSealedInteriors ? new SealedJoinInputs(geometry, [.. geometries.Where((_, i) => built[i].PolygonCount > 0)], settings.MaxClimb, settings.AgentHeight) : null;
+        var combined = NavInteriors.Combine(exterior, nonEmpty, log, sealedJoin);
         times.Interiors = watch.Elapsed.TotalMilliseconds;
         times.InteriorCount = built.Length;
         times.Total += times.Interiors;

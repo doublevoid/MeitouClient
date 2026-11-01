@@ -356,7 +356,7 @@ original leaves Small Shack `48.13:8-` (`110371`) unconnected too; Meitou joins 
 interior group whether the original connects it (mesh connections in its streaming set) and whether ours, the interior whose hull holds most of its
 faces, is reached from the street (over kept polygons, joins and links from the exterior's kept polygons once the zone's kept set is resolved alone or,
 with `--around n`, with its neighbours; a polygon its own pruning kept must be reached; in its zone or a neighbour's); SEALED marks connected
-in the original but not reached in ours. **Observed** (225 zones, 1090 groups, 1066 connected): 25 sealed (18 ruins, 7 intact), 6 reached in ours only; **Verified** (`InteriorJoinSweepTests`): none intact sealed in the interior coverage zones, 28.43, 37.35 and 54.59 (87 connected intact matched);
+in the original but not reached in ours. **Observed** (225 zones, 1090 groups, 1066 connected): 25 sealed (18 ruins, 7 intact), 6 reached in ours only; with `JoinSealedInteriors` on 8 sealed, 7 reached in ours only ("Sealed interiors"); **Verified** (`InteriorJoinSweepTests`): none intact sealed in the interior coverage zones, 28.43, 37.35 and 54.59 (87 connected intact matched);
 `--compare` 20.32, 18.35, 21.42 unchanged by the rules below. The ruins' original groups mostly hold the intact interior (14.5 Outposts: our ruins covered
 13 % of their faces), so those tiles were built with the building standing; the original rebuilds them as ruins at load ("Ruin joins" above; coverage
 rises in 14.5 13→40 %, 16.3 8→23 %, 18.45 0→89 %, 19.41 74→78 %, 53.26 62→74 %). The intact ones, by cause (**Observed**, `--interior`, `--probe`, the original's connection edges): unseeded doorless
@@ -379,6 +379,29 @@ i.e. its connected edge at 783 above our hull's top 773, our door at 696: a diff
 original's exterior has the door landing at ~121 outside the hull, ours only a pruned sliver at 121..123 beside deep water. Were either rebuilt, the
 original's stitch (10 in height, 2 apart, Generator) could not join our geometry either: their door steps are 12..17, as in `48.13:12-` (step 12..15),
 which the original leaves unconnected.
+**Sealed interiors** (Meitou's own rules behind `NavBuildSettings.JoinSealedInteriors`, the game's Fixes switch "Sealed interiors"; off: as the original,
+`meitou-tools navmesh --join-sealed`): an interior that no kept exterior polygon reaches after the door, hull and ruin joins gets a bridge at each doorway
+(a door painter's centre; for a ruin, the box centre of the intact building's door collision, `ZoneGeometry.RuinDoorways`). Of the interior's and the kept
+exterior's open edges that face the doorway (it lies at most `JoinDistance` 6 behind them) within `NavInteriors.SealedDoorwayReach` (48) of it on X/Z and
+`SealedDoorwayHeight` (30) in height, the pair nearest it whose bridge qualifies gets one convex quad polygon across, linked to both edges: `SealedWidth`
+12 at each end (at least `SealedMinWidth` 8), at most `SealedLength` 48 long, its ends at most `SealedRise` 20 apart in height and, above `JoinHeight` 12,
+at least `SealedRunPerRise` 0.5 long per unit of rise (a walker stands on it between ticks; a step of 12+ at one edge is not walkable); clear of walls:
+rays along its sides and middle at 6, 9 and 17 over it meet no exterior or interior triangle steeper than 45° whose top is more than the climb over its
+higher end (a ruin's boundary ring excepted; a lower top is the riser of the step it takes). Its height is its corners'. **Observed**: off, `--compare-interiors`
+on the 17 zones below and `--compare` 20.32, 18.35, 21.42 match the build without the rules line for line. On (17 zones holding the 25 sealed): 8 sealed,
+17 reached; ruins through the doorway where the intact building's door stood (the floor inside the ring 0..29 from it, the exterior 0..21): `14.2:71-`,
+`14.5:2-`, `14.5:8-`, `16.3:4-`, `18.45:2-`, `19.41:2390-`, `20.5:8-`, `23.18:2-`, `23.18:4-`, `35.30:2-`, `50.24:61-`, `52.41:88-`, `53.26:2-`, `10-`,
+`12-`; houses with a door step: Old Storm House `18.9:13-` (floor 1606, ground 1619 9 out), Small Shack `18.9:27-` (floor 1601, ground 1618, bridge 20).
+`meitou-tools navmesh --path` with `--join-sealed` reaches the floor from the street and back (none without): 14.5 (-80180,-124125) 183 ↔ (-80348,-124050)
+185 through (-80205,-124120); 18.9 (-61400,-103450) ↔ (-61320,-103350) 1606; 18.9 (-61760,-103760) ↔ (-61850,-103700) 1601; 19.41 (-56480,44660) 100 ↔
+(-56350,44480) 86. Left sealed: Stephouse `18.9:29-` (its floor meets the ground at the door in plan, 12.6 lower: no run for a bridge; wider ones cross its
+walls); Watchtower `19.16:20-` (its floor at 87 meets the water at 100 under the doorway in plan; wider bridges cross the stair's side walls); Old Storm
+House `22.11:2-` (the ground before its door at 743..752, 47+ over its floor); Outpost s-I `24.18:8-` (upside down under the water: no exterior within 30
+in height of its doorway); Outpost s-II `24.18:15-` (bridged to the water before its door, which the street does not reach: 24.18 keeps 834 of 7523
+polygons); Outpost s-II `43.49:2-` (a post 1132..1156 stands across every bridge at its door); Outpost s-III `50.21:7-` (the nearest exterior 165 from its
+doorway); Broken Watchtower `52.41:86-` (a wall 892..1040 over its doorway). Reached in ours only, new: Outpost s-II ruin `19.41:2388-` (bridged at its doorway,
+the original's tile, built intact, does not connect it); coverage rises in 14.5, 16.3, 18.45, 19.41, 35.30, 52.41, 53.26 (the bridges over original faces),
+none falls. All 225 zones: the same 8 sealed (3 ruins, 5 houses; 25 off), 7 reached in ours only (6 off), every other zone unchanged.
 **Unseeded interiors** (engine choice): an interior is joined whatever its own pruning kept, to exterior polygons the exterior's pruning kept, and
 every region joined to a kept polygon is kept (`NavInteriors.CarryKeep`); exterior polygons stay limited to kept ones, else a door joined to a pruned
 landing satisfied the door and skipped the doorway's kept ground (Storm House Lagoon `40.41:10-`, Metal Wallhouse `51.43:1281-Dialogue-INGAME`).

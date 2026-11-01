@@ -157,10 +157,22 @@ internal sealed partial class ZoneGeometryGatherer
             }
             if (outline.Count < 3) outline = null;
         }
+        // Where the intact building's doors stood (the ruin's doorways, the doors are gone): the centres of their collision shapes.
+        List<Vector3>? doorways = null;
+        if (site.Destroyed)
+        {
+            doorways = [];
+            foreach (var placed in WorldObjectLayout.Building(db, site.Record, site.Placement.Key, site.Position, site.Placement.Rotation, new BuildingState(false)))
+                if (placed.DoorIndex >= 0 && CollisionPathOf(placed.Source, false) is { Length: > 0 } doorPath && collision.Get(doorPath) is { } doorShapes)
+                {
+                    var pts = doorShapes.Shapes.SelectMany(sh => sh.Vertices.Select(v => Vector3.Transform(v, node))).ToList();
+                    if (pts.Count > 0) doorways.Add((pts.Aggregate(Vector3.Min) + pts.Aggregate(Vector3.Max)) / 2);
+                }
+        }
         var g = new ZoneGeometry
         {
             Zone = site.Zone, ZoneMin = boxMin, ZoneMax = boxMin + new Vector2(side), Margin = 8, InteriorHull = hull, InteriorOf = site.Placement.Key, TrackParts = ownOnly || trackParts,
-            ClippedAtBorder = crossLowX || crossLowZ || crossHighX || crossHighZ, InteriorDestroyed = site.Destroyed, DestroyedOutline = outline,
+            ClippedAtBorder = crossLowX || crossLowZ || crossHighX || crossHighZ, InteriorDestroyed = site.Destroyed, DestroyedOutline = outline, RuinDoorways = doorways,
             InteriorDoorless = site.Destroyed || !site.Record.GetReferences("doors").Any(),
         };
 
@@ -185,7 +197,11 @@ internal sealed partial class ZoneGeometryGatherer
 
         // Its walls cut the interior too.
         if (boundary is not null)
+        {
+            int firstBoundary = g.TriangleCount;
             foreach (var shape in boundary.Shapes) AddShape(g, shape, node, 0, carve: false);
+            g.BoundaryTriangles = (firstBoundary, g.TriangleCount);
+        }
 
         AddOutsideCarvers(g, hull.Polygon);
 

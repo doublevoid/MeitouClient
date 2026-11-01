@@ -43,11 +43,11 @@ static int Usage()
         meitou-tools navmesh [--zone x,z | --town name] [--around n] [--geometry] [--obj f.obj] [--png f.png] [--scale u] [--box x0,z0,x1,z1]
                            [--path x0,z0,x1,z1 [--from-y y] [--to-y y] [--closed]] [--near x,z,radius] [--probe x,z[,radius,step]] [--feature-tops] [--route x0,z0,x1,z1] [--ragdoll] [--no-interiors] [--interior key [--own-only]]
                            [--repeat n] [--fingerprint] [--compare x,z ...] [--compare-interiors x,z ... | towns]
-                           [--cell u] [--climb u] [--tile n] [--min-region n] [--merge-region n] [--simplify e] [--verbose]
+                           [--cell u] [--climb u] [--tile n] [--min-region n] [--merge-region n] [--simplify e] [--join-sealed] [--verbose]
                            gather and build a zone's navmesh, write debug files; --fingerprint prints SHA-256 of the cache files of The Hub (or --zone) and the Hub path points;
                            --compare samples each zone against the original's navmesh tiles, --compare-interiors scores the original tiles' interior meshes and their door connections against ours;
                            --interior builds one building's interior alone (parts, components, --obj); --cell, --climb, --tile, --min-region, --merge-region and
-                           --simplify override the build settings
+                           --simplify override the build settings; --join-sealed bridges the interiors the original leaves sealed (NavBuildSettings.JoinSealedInteriors)
         meitou-tools particles [effects]  read every ParticleUniverse script and particle material and count what they use; "effects" lists the EFFECT records with their systems
         meitou-tools particles weathers  every fog volume, and every WEATHER with its effects: type, how many at once, respawn times, fog volumes and lights
         meitou-tools particles warmup [weather...]  what changing to a weather costs: the schedule, the simulation of the warm-up on one thread and in parallel, and a frame

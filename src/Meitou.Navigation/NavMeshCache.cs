@@ -32,7 +32,7 @@ public sealed class NavMeshCache
         uint h = BuilderVersion;
         foreach (var v in new[] { s.CellSize, s.CellHeight, s.DoorInflateCells, s.AgentHeight, s.MaxClimb, s.MaxSimplificationError, s.SeedDistance, s.SeedHeightSlack })
             h = (h * 16777619) ^ (uint)BitConverter.SingleToInt32Bits(v);
-        foreach (var v in new[] { s.TileCells, s.MaxEdgeLength, s.MinRegionArea, s.MergeRegionArea, 0 })
+        foreach (var v in new[] { s.TileCells, s.MaxEdgeLength, s.MinRegionArea, s.MergeRegionArea, s.JoinSealedInteriors ? 1 : 0 })
             h = (h * 16777619) ^ (uint)v;
         return h;
     }

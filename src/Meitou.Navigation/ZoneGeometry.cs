@@ -136,6 +136,10 @@ internal sealed class ZoneGeometry
     /// have no collision); only polygons inside it are kept (docs/game/pathfinding.md, "Destroyed interiors").
     /// </summary>
     public List<(Vector2 A, Vector2 B)>? DestroyedOutline { get; init; }
+    /// <summary>For the interior of a destroyed building: where its intact building's doors stood (their collision's box centres); its doorways.</summary>
+    public List<Vector3>? RuinDoorways { get; init; }
+    /// <summary>For the interior of a destroyed building: the triangles [First, Last) of its <c>destroyed boundary</c> ring (the sealed-interior joins cross it, <see cref="NavInteriors"/>).</summary>
+    public (int First, int Last) BoundaryTriangles { get; set; }
     /// <summary>
     /// For the interior of an intact building without doors (an open doorway, e.g. the Hive Commune Hut), or of a ruin: joined to the exterior wherever their edges meet
     /// on the hull's line (docs/game/pathfinding.md, "Door joins").

@@ -76,6 +76,7 @@ static class NavmeshTool
                 case "--climb": settings = settings with { MaxClimb = float.Parse(args[++i], CultureInfo.InvariantCulture) }; break;
                 case "--cell": settings = settings with { CellSize = float.Parse(args[++i], CultureInfo.InvariantCulture) }; break;
                 case "--own-only": ownOnly = true; break;
+                case "--join-sealed": settings = settings with { JoinSealedInteriors = true }; break;
                 case "--tile": settings = settings with { TileCells = int.Parse(args[++i], CultureInfo.InvariantCulture) }; break;
                 case "--min-region": settings = settings with { MinRegionArea = int.Parse(args[++i], CultureInfo.InvariantCulture) }; break;
                 case "--merge-region": settings = settings with { MergeRegionArea = int.Parse(args[++i], CultureInfo.InvariantCulture) }; break;
@@ -678,7 +679,10 @@ static class NavmeshTool
             var groups = OriginalNavTiles.LoadInteriors(install, zone);
             if (groups.Count == 0) { Console.WriteLine($"{zone}: no interior groups"); continue; }
             var g = gatherer.Gather(zone);
-            var full = NavMeshPipeline.BuildZone(gatherer, g, settings, out _, out var inner, interiors: true);
+            // The sealed-interior bridges (--join-sealed) are appended after the interiors; the build's doorway lines count them.
+            var buildLog = new List<string>();
+            var full = NavMeshPipeline.BuildZone(gatherer, g, settings, out _, out var inner, interiors: true, log: buildLog.Add);
+            int bridges = buildLog.Count(line => line.EndsWith(" through the doorway", StringComparison.Ordinal));
             ZoneNavMesh mesh;
             bool[]? resolved = null;
             if (around == 0) mesh = ZoneKeptClosure.ResolveAlone(full, settings);
@@ -703,7 +707,7 @@ static class NavmeshTool
             if (verbose) FurnitureOverOriginal(gatherer, zone, groups, settings);
             int faces = coverage.Sum(c => c.Faces), covered = coverage.Sum(c => c.Covered);
             Console.WriteLine($"{zone}: {groups.Count} interior groups, {covered}/{faces} faces covered ({(faces > 0 ? 100.0 * covered / faces : 100):0.0} %)");
-            PrintJoins(InteriorJoinSweep.Compare(gatherer, zone, groups, sites, InteriorJoinSweep.Reached(zone, full, inner, settings, resolved), settings));
+            PrintJoins(InteriorJoinSweep.Compare(gatherer, zone, groups, sites, InteriorJoinSweep.Reached(zone, full, inner, settings, resolved, bridges), settings));
             foreach (var c in coverage)
                 if (c.Faces > 0 && c.Covered < 0.9 * c.Faces)
                 {

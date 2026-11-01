@@ -165,7 +165,9 @@ sealed partial class GameHost(GameInstall install, WorldScene scene, AssetLocato
             var levels = IsSandbox || IsDuel || IsBattle ? null : scene.Objects?.Levels ?? Meitou.Data.World.WorldLevelData.Load(install, includeInteriors: true);
             if (levels is not null)
             {
-                nav = new Meitou.Navigation.NavSystem(install, gameDb, levels!, heights.HeightAt);
+                // The Sealed interiors fix is read once per run: the navmesh service's build settings are fixed, and are part of its cache key.
+                nav = new Meitou.Navigation.NavSystem(install, gameDb, levels!, heights.HeightAt,
+                    settings: new Meitou.Navigation.NavBuildSettings { JoinSealedInteriors = config.FixSealedInteriors });
                 nav.ZoneReady += ready => { lock (navReady) navReady.Add(ready.Zone); };
                 walkability = new NavAdapter(nav.Walkability);
                 // Ragdolls land on the terrain and the buildings' collision (gathered per zone on a worker when a ragdoll comes near).
