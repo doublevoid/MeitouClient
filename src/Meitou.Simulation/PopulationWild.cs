@@ -63,7 +63,11 @@ public sealed partial class PopulationSystem
     internal IReadOnlyList<KeptWild> KeptWildOf(int site) => keptWild.TryGetValue(site, out var kept) ? kept : [];
 
     /// <summary>A wild site's squads, built. <paramref name="Rolls"/>: the nest rolls used (the next top-up's keys follow them); <paramref name="Exhausted"/>: a nest roll found no entry that fits or weighs anything.</summary>
-    sealed record BuiltWild(int Site, long LoadId, Vector2 Centre, List<BuiltSquad> Squads, int Rolls = 0, bool Exhausted = false, bool TopUp = false);
+    sealed record BuiltWild(int Site, long LoadId, Vector2 Centre, List<BuiltSquad> Squads, int Rolls = 0, bool Exhausted = false, bool TopUp = false)
+    {
+        /// <summary>A nest's debris as laid out (<see cref="LayoutDebris"/>; empty for a sector, a top-up or a dormant nest).</summary>
+        public List<NestDebrisPiece> Debris { get; init; } = [];
+    }
 
     /// <summary>What a nest build may make: members up to <paramref name="Cap"/> with <paramref name="Members"/> there already, <paramref name="Counts"/> squads per entry, rolls keyed from <paramref name="First"/>, at most <paramref name="Rolls"/> of them and <paramref name="Squads"/> squads; <paramref name="Place"/> false only weighs (a player is near).</summary>
     sealed record NestBudget(int Cap, int Members, int[] Counts, int First, int Rolls, int Squads, bool Place = true, Vector2? Centre = null);
@@ -446,6 +450,7 @@ public sealed partial class PopulationSystem
         var site = wildSites![b.Site];
         if (site.Kind == WildKind.Nest && (b.Squads.Count > 0 || site.SaveInstance is not null)) wildCentres[b.Site] = b.Centre;
         if (!b.TopUp) SpawnKeptWild(world, b.Site, state);
+        if (!b.TopUp && b.Debris.Count > 0 && state.DebrisBuildings.Count == 0 && state.DebrisItems.Count == 0) PlaceDebris(world, site, state, b.Debris);
         foreach (var built in b.Squads)
         {
             var squad = SpawnSquad(world, built, null, 0);
@@ -647,6 +652,8 @@ public sealed partial class PopulationSystem
             squads.Add(one);
             members += one.Plan.TotalMembers;
         }
-        return new BuiltWild(site.Index, loadId, c, squads, rolls, exhausted, topUp);
+        // The camp itself (its poles, beds, torches, bones and eggs) comes with the nest while it is not wiped out (its pool has room or members, kept squads included); never with a top-up.
+        var debris = topUp || budget.Cap <= 0 && budget.Members <= 0 && site.SaveInstance is null ? [] : LayoutDebris(site, nest, c, radius, seed, walk, data.Db);
+        return new BuiltWild(site.Index, loadId, c, squads, rolls, exhausted, topUp) { Debris = debris };
     }
 }

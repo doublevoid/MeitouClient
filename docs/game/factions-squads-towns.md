@@ -511,7 +511,18 @@ Meitou: [ground items](../simulation.md#items-and-eating).
   the pool is empty and more than 4 are free, so a squad bigger than the budget can open a nest: `FUN_1408f7e80`, **Verified** by code) unless a
   player-faction unit is within 1250. With no candidate and no intact squad the nest is `ded` ("wiped out", game hour stored as `tod`,
   **Observed**) and never spawns again. New nests come only from the area tick, up to `num nests` per biome group; whether a dead nest
-  frees its count is **Unknown**. A group with `nests at fixed markers only` picks among its NEST_MARKER towns, leaving out every marker whose
+  frees its count is **Unknown**.
+- **Nest debris** (TOWN fields, **Verified** against `fcs.def`'s field texts; the scatter `FUN_140938440` is not decoded): `debris building` (BUILDING;
+  "for nests only, building must have no navmesh effect"; v0 = number to spawn with 50% randomisation, 0 = one with a 50% chance; v1, v2 = the least and most
+  cluster range round the nest's centrepoints), `debris` (NEST_ITEM; v0, v1 = the least and most to spawn, v2 = mesh scale %), `num centrepoints` (the clusters
+  the buildings spawn in), `size radius` ("the overall size of the nest"), `loot spawn` (VENDOR_LIST; v0, v1 = the least and most items scattered), `spawn in town centre`
+  (the junk spawns for any town, else nests only); a SQUAD_TEMPLATE's `nest` TOWN "populates the building with debris and loot like a nest does". A fogman nest lists 6
+  Prisoner Poles (10..200), 2 Torch Posts, 3 trophies and 3 sitting spots; a beak thing nest 20..50 Bone Fragments, 1..10 eggs, 10..40 dung. NEST_ITEM has `cluster`
+  (items clustered round it; v0, v1 = count, v2 = range), `cluster min/max/range`, `number of meshes` (`<name>1..n` mesh variants) and `egg` (the animal that hatches).
+  Meitou (`PopulationSystem.LayoutDebris`, engine reading of the texts): laid out from the seed when the nest's first squads are made (centrepoint 0 the centre, the rest
+  seeded within the nest radius; counts as above; items uniform within the radius; each piece on walkable ground or left out), the buildings complete `BuildSite`s of the
+  nest's faction (so a pole is a cage its kidnappers use and a fog prince eats at, torch posts burn; kept out of the navmesh and the save), the items ground items; all
+  removed when the nest unloads. Not modelled: item scale, `cluster`, mesh variants, `loot spawn`, `spawn in town centre`, and what a wiped-out nest keeps (**Unknown**). A group with `nests at fixed markers only` picks among its NEST_MARKER towns, leaving out every marker whose
   nearest town (by XZ, markers skipped) is within 2500 (3D) (**Verified**, `FUN_1408f6350`, 6,250,000 squared).
 - **Homeless squads** (area tick `FUN_1408f9240`, every 2 s, per island): the island's load (sum over its loaded sectors of intact +
   0.5 × not-intact squads, [counts](#off-screen-world) above; clamped to [0, 2] for a sector with its own town or the town flag `FUN_1408f62e0` / +0x30) is compared with `FUN_1408f5ca0`, the sum of P × `homeless spawn
