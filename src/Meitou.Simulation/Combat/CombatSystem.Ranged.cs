@@ -97,7 +97,7 @@ public sealed partial class CombatSystem : IProjectileSource
         {
             var p = projectiles[k];
             list[k] = new ProjectileSnapshot(p.Id, p.Position, p.Direction, p.Stuck ? 1 : MathF.Max(1, p.Speed * 0.005f), p.Stuck, p.Mesh)
-                { Shooter = new CharacterId(p.Shooter, p.ShooterGeneration) };
+                { Shooter = new CharacterId(p.Shooter, p.ShooterGeneration), Speed = p.Stuck ? 0 : p.Speed };
         }
         return list;
     }
@@ -668,6 +668,7 @@ public sealed partial class CombatSystem : IProjectileSource
                     break;
             }
         }
+        if (knockout || death) Knockdown(world, v, dc, new Vector2(p.Direction.X, p.Direction.Z), damage.Cut + damage.Blunt + damage.Pierce);
         if (dc.Medical.Incapacitated)
         {
             D.Down = true;

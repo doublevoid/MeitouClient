@@ -216,6 +216,8 @@ public sealed record CharacterSnapshot(CharacterId Id, CharacterAppearance? Appe
     public int LimbBits { get; init; }
     /// <summary>The blood each of the first 8 body parts shows (<c>FUN_140530b30</c>: 1 - clamp((flesh - stun + bandage) / max, 0, 1), byte k = part k as 0 to 255; 0: unhurt).</summary>
     public ulong BloodAmounts { get; init; }
+    /// <summary>The speed (world units/s) the blow that last put it down gave its ragdoll (<c>CharacterCold.Knockdown</c>; Meitou); a cut-off head is thrown with it.</summary>
+    public Vector3 Knockdown { get; init; }
     /// <summary>The equipment sections disabled for the character (<see cref="Items.InventoryCommands.SectionClosed"/>; empty for most).</summary>
     public IReadOnlyList<string> ClosedSlots { get; init; } = [];
     /// <summary>The HUD's numbers for a selected character (null for the others).</summary>
@@ -464,6 +466,8 @@ public readonly record struct ProjectileSnapshot(int Id, Vector3 Position, Vecto
 {
     /// <summary>Who fired it (the renderer starts the drawn bolt at that character's crossbow).</summary>
     public CharacterId Shooter { get; init; }
+    /// <summary>Its speed in units a second (0 once stuck; the renderer's tracers are as long as a moment of it).</summary>
+    public float Speed { get; init; }
 }
 
 /// <summary>

@@ -71,6 +71,38 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
     }
 
     /// <summary>
+    /// The sideways distance (units) a path walker may swing wide of the next leg while its velocity turns at a corner (engine choice: half <see cref="ArriveRadius"/>, so it
+    /// stays within reach of the corners after it). Turning by an angle t at speed v at acceleration a swings it about v^2 (1 - cos t) / a wide.
+    /// </summary>
+    public const float TurnSwing = ArriveRadius * 0.5f;
+
+    /// <summary>
+    /// The most a walker heading <paramref name="dir"/> for <c>path[cursor]</c>, <paramref name="dist"/> away, may go now so that it can still brake, at <paramref name="accel"/>,
+    /// to the speed each corner within its stopping distance can be turned at, swinging no more than <see cref="TurnSwing"/> wide (engine choice; the original's agent brakes
+    /// before corners, its condition Unknown). <b>Observed</b> (circling save, zone 22.33 at (-42188, 8064) on a slope): without it a walker at 120 turning 45 degrees swung
+    /// 15 to 20 wide of its next corner, never had it behind (it steered at it all the way round) and circled it, or left the ground and dropped its order.
+    /// </summary>
+    static float CornerSpeed(Vector3[] path, int cursor, Vector2 dir, float dist, float accel, float top)
+    {
+        float most = top, along = dist, stopping = top * top / (2 * accel);
+        var inbound = dir;
+        for (int j = cursor; j < path.Length - 1 && along < stopping; j++)
+        {
+            var leg = new Vector2(path[j + 1].X - path[j].X, path[j + 1].Z - path[j].Z);
+            float length = leg.Length();
+            if (length < 1e-3f) continue;
+            leg /= length;
+            // Turned from the leg before or from the way it heads now, whichever is more: two close corners of 45 degrees are one turn of 90. The braking ends a
+            // TurnSwing short of the corner, where a corner it may cut is reached.
+            float bend = MathF.Max(1 - Vector2.Dot(inbound, leg), 1 - Vector2.Dot(dir, leg));
+            if (bend > 1e-4f) most = MathF.Min(most, MathF.Sqrt(TurnSwing * accel / bend + 2 * accel * MathF.Max(0, along - TurnSwing)));
+            inbound = leg;
+            along += length;
+        }
+        return most;
+    }
+
+    /// <summary>
     /// How near the last point of a path counts as arrived (<b>Verified</b>, the nav agent's <c>FUN_140144440</c>: 0.01 squared Havok units, 1 unit); the agent brakes into it
     /// (<see cref="PathAcceleration"/>), so a walker stops on its goal rather than a stride short of it.
     /// </summary>
@@ -844,6 +876,9 @@ public sealed class MovementSystem(PathService paths) : ITickSystem, IDisposable
                     if (cold.Medical is { Crawling: true } && cold.CarriedBy.IsNone) desired = Bodies.Speed.Crippled;   // the final override, after water and sneaking
                     // Braking into the last point, never past it.
                     if (last) desired = MathF.Min(desired, MathF.Min(MathF.Sqrt(2 * PathAcceleration(cold) * dist), dist / dt));
+                    // The nav agent brakes before its corners (docs/game/pathfinding.md "Speed and orders"): at full speed its velocity, turning at its acceleration, would sweep
+                    // wide of the next leg and circle the corner after it.
+                    if (!last && !cold.InCombat) desired = MathF.Min(desired, CornerSpeed(cold.Path, n.PathCursor, dir, dist, PathAcceleration(cold), desired));
                 }
                 // On the provisional part of a long route: ask again (the zones ahead may have loaded), following this one until the answer comes.
                 if (n.PathCursor >= cold.PathExact) Reroute(world, ref n, cold);
