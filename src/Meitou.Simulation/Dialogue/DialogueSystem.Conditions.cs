@@ -10,8 +10,8 @@ public sealed partial class DialogueSystem
 {
     /// <summary>
     /// One condition (<c>FUN_140676950</c>, docs/game/dialogue.md "Conditions"): <c>who</c> 0 tests the speaker, any other value the target. Yes/no conditions pass when the computed
-    /// answer equals value &gt; 0; counts compare by <c>compare by</c> (Num3: 1 &lt;, 2 &gt;, else ==; Num2: 1 &lt;, else &gt;=). Conditions whose inputs Meitou does not have
-    /// (building locks, town wall locks, strength ratings, head counts, training equipment) compute "no".
+    /// answer equals value &gt; 0; counts compare by <c>compare by</c> (Num3: 1 &lt;, 2 &gt;, else ==; Num2: 1 &lt;, else &gt;=). Every code is computed; DC 23 and 26 are
+    /// the line's bit masks (<see cref="DialogueNode.MemoryRequired"/>, <see cref="DialogueNode.PersonalityRequired"/>), and an unknown code computes "no".
     /// </summary>
     bool Condition(World world, Conversation c, DialogueCondition dc, CharacterId me, CharacterCold mc, CharacterId other)
     {
