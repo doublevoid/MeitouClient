@@ -466,6 +466,7 @@ sealed partial class GameHost
                 assets.Find("credits.txt") is { } creditsFile ? File.ReadAllText(creditsFile) : "");
             // The picks the interface asks the host for: the drawn character meshes, the buildings' floors and their closed shells.
             hud.MeshHit = (id, origin, direction) => characters?.RayHit(DrawKey(id), origin, direction);
+            hud.HeadAt = id => characters?.LastDrawn(DrawKey(id), "Bip01 Head")?.Bone;
             hud.Floor = (() => viewedFloor, StepFloor);
             hud.BuildingMoveHit = (origin, direction, distance) => objects?.MoveHit(origin, direction, viewedFloor, distance);
             hud.SurfaceMoveHit = SurfaceMoveHit;

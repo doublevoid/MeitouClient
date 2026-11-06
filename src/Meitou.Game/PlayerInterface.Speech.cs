@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Numerics;
 using Meitou.Data.Ui;
 using Meitou.Rendering.Ui;
+using Meitou.Simulation;
 using Meitou.Simulation.Dialogue;
 
 namespace Meitou.Game;
@@ -24,7 +25,7 @@ sealed partial class PlayerInterface
         foreach (var bubble in speech)
         {
             if (session.CurrentSnapshot.Characters.FirstOrDefault(c => c.Id == bubble.Speaker) is not { } who) continue;
-            var head = where(who) + new Vector3(0, CharacterHeight + 4, 0);
+            var head = SpeechAnchor(who);
             float distance = Vector3.Distance(Eye, head) * (bubble.Large ? 0.5f : 0.75f);
             float alpha = Math.Clamp((2500 - distance) / 1500f, 0, 1);
             if (alpha <= 0 || Project(head) is not { } at) continue;
@@ -34,6 +35,19 @@ sealed partial class PlayerInterface
         }
         var panels = SeparateBubbles([.. shown.Select(b => b.Panel)]);
         for (int n = 0; n < shown.Count; n++) AddBubble(controls, n, shown[n].Bubble, shown[n].Text, shown[n].Alpha, panels[n]);
+    }
+
+    /// <summary>
+    /// Where the renderer last drew a character's <c>Bip01 Head</c> bone (<c>CharacterRenderer.LastDrawn</c>); null when it did not draw that character in the world
+    /// (culled, an icon, no such bone). Null without a renderer.
+    /// </summary>
+    public Func<CharacterId, Vector3?>? HeadAt { get; set; }
+
+    /// <summary>4 units above the drawn head bone, so the bubble follows a crouching, lying or carried body; above a standing height at the feet when the head is not drawn.</summary>
+    Vector3 SpeechAnchor(CharacterSnapshot who)
+    {
+        var head = HeadAt?.Invoke(who.Id) ?? where(who) + new Vector3(0, CharacterHeight, 0);
+        return head + new Vector3(0, 4, 0);
     }
 
     void AddBubble(List<UiControl> controls, int n, SpeechBubble bubble, FittedSpeech text, float alpha, UiRect panel)

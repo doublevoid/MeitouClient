@@ -579,8 +579,9 @@ Code (**Observed**): the window (`FUN_140725740`, opened by `FUN_140727820`) nam
 both portraits; choices use the MyGUI colours `DialogueTextOption` / `DialogueTextOptionHover`; the NPC frame grows to its text (how far and in which direction is **Unknown**; Meitou, `PlayerInterface.FitNpcFrame`: the panel grows
 upward from the layout's height by the wrapped line's overflow, so the connecting bars and the player panel stay, at most to the screen's top, past which the line scrolls under the EditBox's bar). The
 bubble (`FUN_140725f30`) uses Kenshi_StandardFont_Large or _Medium, sits 4 units above the "Bip01 Head" bone, and fades from opaque at
-1000 to gone at 2500 units from the camera (distance ×0.5 for large, ×0.75 for medium events). Meitou draws it as that layout
-(`PlayerInterface.AddSpeech`): the skin and `DialogueBubbleText` #e6e6e6 with a black 1 px shadow, fitted to the wrapped text (the original's sizing is **Unknown**).
+1000 to gone at 2500 units from the camera (distance ×0.5 for large, ×0.75 for medium events). Every shipped animal and human skeleton
+names that bone `Bip01 Head` (**Observed**, bone names in `data/**/*.skeleton`; only the unreferenced `polySurface1` and a building mesh's differ). Meitou draws it as that layout
+(`PlayerInterface.AddSpeech`), 4 above the drawn head bone (18 + 4 above the feet when the renderer did not draw the character): the skin and `DialogueBubbleText` #e6e6e6 with a black 1 px shadow, fitted to the wrapped text (the original's sizing is **Unknown**).
 
 ## Unknowns
 
