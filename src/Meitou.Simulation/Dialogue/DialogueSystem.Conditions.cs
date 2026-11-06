@@ -118,6 +118,10 @@ public sealed partial class DialogueSystem
             case 57: return Bool(Position(world, subjectId) is { } walled && world.SystemOf<Locks.LockSystem>()?.Regions?.CodeAt(walled) > 0);
             // TOWN_WALLS_LOCKED_UP: S's current town has gates and none of their doors is open (FUN_140929820 behind Town vfunc 0x300); S in no town reads false.
             case 58: return Bool(Position(world, subjectId) is { } inTown && TownAt(inTown) is >= 0 and var walledTown && Locks.LockSystem.TownLockedUp(world, data.Sites[walledTown]));
+            // TOWN_HAS_FORTIFICATIONS_WALLS: S's current town has a gate anywhere (Town slot 97 FUN_140929910); S in no town reads false.
+            case 49:
+                return Bool(Position(world, subjectId) is { } gated && TownAt(gated) is >= 0 and var gatedTown
+                    && Locks.LockSystem.TownHasGates(world, data.Sites[gatedTown]));
             case 59: return Bool(s.SlaveState is 1 or 2);
             case 61: return Bool(s.SlaveState is 1 or 2 && s.SlaveOwner >= 0 && s.SlaveOwner == meF);
             case 62: return Bool(s.SlaveState > 1);
@@ -130,6 +134,10 @@ public sealed partial class DialogueSystem
             case 67: return Bool((s.Orders & CharacterOrders.Sneak) != 0 && !s.InCombat);
             case 68: return Bool(world.Characters.TryResolveNext(subjectId, out int indoors) && world.Sight.BuildingOf(indoors) is not null);
             case 69: return Num2(HasIllegalItem(world, c, me, mc, subjectId) ? 1 : 0);
+            // USING_MY_TRAINING_EQUIPMENT: S trains on a dummy owned by Me's faction (Character +0x158, set while Task_UseTrainingDummy runs).
+            case 70:
+                return Bool(world.Characters.TryResolveNext(subjectId, out int trainee) && TrainingDummyOwner(world, trainee) is >= 0 and var dummyOwner
+                    && dummyOwner == meF);
             case 71: return Bool(s.Medical is { } fed && fed.Hunger < 1.7f);
             case 72:
             {
