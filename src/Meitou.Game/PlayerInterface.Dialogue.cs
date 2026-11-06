@@ -38,6 +38,8 @@ sealed partial class PlayerInterface
             conversationEndSent = false;
             CloseContextMenu();
             faithfulScreens.Open("dialogue");
+            // The exe posts it as a player conversation starts (FUN_140684320); only the never-loaded SFX_Bank has the event, so it is silent there and here.
+            Sound("Initiate_Conversation");
             UpdateMenuPause();
         }
         else if (!faithfulScreens.IsOpen("dialogue") && !conversationEndSent)
@@ -62,13 +64,63 @@ sealed partial class PlayerInterface
         b.Text["PlayerName"] = talk.PlayerName;
         b.Text["NpcDialog"] = talk.Text;
         b.Properties["NpcDialog"] = new Dictionary<string, string> { ["Static"] = "true", ["WordWrap"] = "true", ["TextAlign"] = "Left Top" };
-        // A line longer than the NPC box scrolls under the EditBox's own bar (the original grows the frame instead); each new line starts at the top.
+        FitNpcFrame(b, talk.Text);
+        // A line taller than the screen above the frame allows scrolls under the EditBox's own bar; each new line starts at the top.
         if (talk.Text != dialogueText) { dialogueText = talk.Text; faithfulScreens.SetScroll("dialogue", "NpcDialog", 0); }
         // The choices are drawn as buttons, so the player box's template scroll bar would only be an empty track.
         foreach (var bar in faithfulScreens.Layout("dialogue").Find("PlayerDialog")?.Children.Where(w => w.Type == "ScrollBar") ?? []) b.HiddenWidgets.Add(bar);
         b.NativeScroll.Add("PlayerDialog");   // the choices are drawn against the box, not scrolled by its canvas
         b.Text["MoneyLabelText"] = Loc.Tr("Money:");
         b.Text["MoneyAmountText"] = "c." + talk.PlayerMoney.ToString("N0", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// The NPC frame grown to its wrapped line, never below the layout's height (the original grows it to its text). It grows upward, so the
+    /// connecting bars and the player panel stay (engine choice), at most to the top of the screen; the name and portrait keep their size.
+    /// </summary>
+    void FitNpcFrame(UiBindings b, string text)
+    {
+        var layout = faithfulScreens.Layout("dialogue");
+        if (layout.Find("NpcPanel") is not { RealPosition: true } panel || layout.Find("NpcDialog") is not { } dialog) return;
+        if (panel.Children.FirstOrDefault(c => c.Children.Contains(dialog)) is not { } frame) return;
+
+        float panelHeight = panel.Position.Height * Height;
+        float frameHeight = frame.Position.Height * panelHeight;
+        float dialogHeight = dialog.Position.Height * frameHeight;
+        float extra = Math.Clamp(NpcTextHeight(panel, frame, dialog, text) - (dialogHeight - NpcClientInset.Y), 0, panel.Position.Y * Height);
+        if (extra <= 0) return;
+
+        float grownPanel = panelHeight + extra;
+        float grownFrame = frameHeight + extra;
+        b.RelativePositions[panel] = panel.Position with { Y = panel.Position.Y - extra / Height, Height = grownPanel / Height };
+        foreach (var child in panel.Children)
+        {
+            float height = ReferenceEquals(child, frame) ? grownFrame : child.Position.Height * panelHeight;
+            b.RelativePositions[child] = child.Position with { Y = child.Position.Y * panelHeight / grownPanel, Height = height / grownPanel };
+        }
+        float dialogTop = dialog.Position.Y * frameHeight / grownFrame;
+        b.RelativePositions[dialog] = dialog.Position with { Y = dialogTop, Height = (dialogHeight + extra) / grownFrame };
+    }
+
+    /// <summary>
+    /// How much narrower (left inset and scroll bar) and shorter (top inset) <c>Kenshi_EditBoxStrechEmpty</c>'s text client is than the EditBox.
+    /// </summary>
+    static readonly Vector2 NpcClientInset = new(20, 5);
+    (string Text, int Width, int Height, float TextHeight) npcTextHeight;
+
+    /// <summary>
+    /// The NPC line's height wrapped in the EditBox's text client at the layout's width, in the client's template font (cached per line and viewport).
+    /// </summary>
+    float NpcTextHeight(MyGuiWidget panel, MyGuiWidget frame, MyGuiWidget dialog, string text)
+    {
+        if (uiPainter is null) return 0;
+        if (npcTextHeight.Text == text && npcTextHeight.Width == Width && npcTextHeight.Height == Height) return npcTextHeight.TextHeight;
+
+        float width = dialog.Position.Width * frame.Position.Width * panel.Position.Width * Width - NpcClientInset.X;
+        var client = new UiControl("NpcDialog", "TextBox", new UiRect(0, 0, width, 0), text, "", "Kenshi_TextboxStandardText", true,
+            new Dictionary<string, string> { ["WordWrap"] = "true" }, Vector4.Zero);
+        npcTextHeight = (text, Width, Height, uiPainter.TextHeight(client, Height, StandardPixels));
+        return npcTextHeight.TextHeight;
     }
 
     /// <summary>The choices, one line each down the player panel's dialog area.</summary>

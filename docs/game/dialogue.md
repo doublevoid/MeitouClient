@@ -247,7 +247,8 @@ NPC answers an event's lines like any other; the rule is also in [Arrival banter
 
 `FUN_140684320`:
 - Dropped unless the player character is within 9216 units of the camera node (inferred as the camera).
-- Plays Wwise `Initiate_Conversation`. Chooses the root and its best child, says it.
+- Plays Wwise `Initiate_Conversation` on the GUI object; silent, as only the never-loaded `SFX_Bank` has that event ([audio](../audio.md#interface)).
+  Meitou posts it as the window opens (`PlayerInterface.SyncDialogueScreen`). Chooses the root and its best child, says it.
 - Opens the DialogueWindow when the said line has passing children; **the window pauses the game** (clock speed 0, the previous speed
   restored on close, `FUN_140787fb0`).
 - The talking player character is the one given the Talk order; walking there is that task's precondition. AI-to-AI talk range is
@@ -575,7 +576,8 @@ squad simply takes the speaker in, unless a target flag at +0x1d0 is set):
   centred, black shadow).
 
 Code (**Observed**): the window (`FUN_140725740`, opened by `FUN_140727820`) names the speaker and the player character and renders
-both portraits; choices use the MyGUI colours `DialogueTextOption` / `DialogueTextOptionHover`; the NPC frame grows to its text (Meitou keeps the layout's frame and scrolls a longer line under the EditBox's bar). The
+both portraits; choices use the MyGUI colours `DialogueTextOption` / `DialogueTextOptionHover`; the NPC frame grows to its text (how far and in which direction is **Unknown**; Meitou, `PlayerInterface.FitNpcFrame`: the panel grows
+upward from the layout's height by the wrapped line's overflow, so the connecting bars and the player panel stay, at most to the screen's top, past which the line scrolls under the EditBox's bar). The
 bubble (`FUN_140725f30`) uses Kenshi_StandardFont_Large or _Medium, sits 4 units above the "Bip01 Head" bone, and fades from opaque at
 1000 to gone at 2500 units from the camera (distance ×0.5 for large, ×0.75 for medium events). Meitou draws it as that layout
 (`PlayerInterface.AddSpeech`): the skin and `DialogueBubbleText` #e6e6e6 with a black 1 px shadow, fitted to the wrapped text (the original's sizing is **Unknown**).
