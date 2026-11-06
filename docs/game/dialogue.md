@@ -424,7 +424,7 @@ Talk menu's dry run is picking.
 | 7 / 8 IMPRISONED_BY_TARGET / OTHER | S caged (in-something state 2) by Me's faction (7) or another (8); when S is Me, by the target's faction; no target: !B | Bool |
 | 9 IS_A_TRADER | S's SQUAD_TEMPLATE has `is trader`, whatever the squad stocks (`FUN_1405cff70`, [who trades](economy.md#who-trades)) | Bool |
 | 10 FACTION_RANK | the player's rank in Me's faction ([faction rank](factions-squads-towns.md#32-faction-rank)), any `who` | Num3 |
-| 11 BUILDING_IS_CLOSED_AND_SECURED | a bool at `+0xe8` of Me's platoon AI object (`FUN_140791ba0`: Character `+0x658` -> `+0x78` -> `+0xf8`; its setter **Unknown**, not built) | Bool |
+| 11 BUILDING_IS_CLOSED_AND_SECURED | a bool at `+0xe8` of Me's platoon AI object (`FUN_140791ba0`: Character `+0x658` -> `+0x78` -> `+0xf8`), any `who`: the same field as the squad's "house locked" flag `homelok` ([locks](locks.md#doors), **Observed**: same object and offset). Base data (**Observed**, probe): 40 uses in 39 records; 38 need it clear (shopkeepers' and barmen's greetings and trade roots, events 1 and 3; the shop guards' and Holy Nation shopkeepers' closing-time lines, event 9 SHOO_FROM_MY_BUILDING), 2 need it set (a citizen's "And how'd you get in?!" under event 3 `civ sees fight`, and an unpackaged root whose line asks "How did you get in here?!"). Meitou: `LockSystem.IsHouseLocked` of Me's squad's home | Bool |
 | 12 PLAYER_TECH_LEVEL | the research manager's tech level, `*(*(game + 0x38) + 8)` (**Observed**; the manager's level is the one [research](buildings-production.md#research) raises, 1 at the start), any `who` | Num3 |
 | 13 NUM_DIALOG_EVENT_REPEATS | Me's counter for the current event | Num3 |
 | 14 IS_IMPRISONED | S is caged | Bool |
@@ -583,7 +583,7 @@ bubble (`FUN_140725f30`) uses Kenshi_StandardFont_Large or _Medium, sits 4 units
 ## Unknowns
 
 T_WHOLE_SQUAD fan-out; how a childless closing line is shown in a player conversation; `isDialogDelivered`; where `crowd trigger`'s %
-is read; DA 44-46; the KO event mask; the interjector pick rule; DC 77's cap and quantity; what DC 11's flag, DC 21/22's rating and DC 39's
+is read; DA 44-46; the KO event mask; the interjector pick rule; DC 77's cap and quantity; what DC 21/22's rating and DC 39's
 counters hold; DA 15's lists, 58's field; the speech timer's unit; the unnamed short-term tags 1 and 5 (in the grudge mask).
 
 ## Meitou design

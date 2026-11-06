@@ -33,16 +33,16 @@ public sealed partial class DialogueSystem
         }
         if (dc.Condition >= SimulationExtensions.FirstModCode) return ModCondition(world, me, s is null ? CharacterId.None : subjectId, dc);
         if (dc.Condition == 12) return Num3(world.Research.TechLevel);   // the research manager's tech level (*(*(game + 0x38) + 8), FUN_140676950), whatever the subject
+        if (dc.Condition == 11) return Bool(HomeLockedUp(world, mc));   // the speaker's platoon flag, whatever the subject
         if (s is null)
         {
-            // No player character at all: the faction-level test (FUN_140671530) against the player's faction; everything else passes. Not DC 11 (the speaker's own platoon, not built).
+            // No player character at all: the faction-level test (FUN_140671530) against the player's faction; everything else passes.
             int player = world.Player.Faction;
             return dc.Condition switch
             {
                 1 => Num2(player == mc.Faction ? 100 : relations.Contains(mc.Faction) && relations.Contains(player) ? (int)relations.Get(mc.Faction, player) : 0),
                 2 => Num2(world.Player.Money),
                 3 => Num2((int)relations.GlobalTrust(player)),
-                11 => !b,
                 _ => true,
             };
         }
@@ -211,6 +211,14 @@ public sealed partial class DialogueSystem
         }
         return found;
     }
+
+    /// <summary>
+    /// DC_BUILDING_IS_CLOSED_AND_SECURED: the speaker's platoon AI <c>+0xe8</c>, the "house locked" flag (<c>homelok</c>, docs/game/locks.md "Doors"): a lock-up round locked its
+    /// squad's home and nothing has unlocked it since (<see cref="Locks.LockSystem.IsHouseLocked"/>).
+    /// </summary>
+    static bool HomeLockedUp(World world, CharacterCold mc) =>
+        world.Squads.Find(mc.SquadId) is { } squad && (squad.Ai?.OwnHome ?? squad.HomeBuilding) is { } home
+        && world.SystemOf<Locks.LockSystem>()?.IsHouseLocked(world, home.Key) == true;
 
     /// <summary>The player's nearest outpost whose radius holds <paramref name="at"/>, or null.</summary>
     Construction.PlayerTown? PlayerTownAt(World world, Vector3 at)
