@@ -191,8 +191,8 @@ public sealed partial class DialogueSystem
 
     /// <summary>
     /// DC_HAS_ILLEGAL_ITEM (<c>FUN_140676950</c>, docs/game/dialogue.md "Conditions"): a member of S's squad that Me perceives (<see cref="Known"/>) carries an item on the
-    /// <c>illegal goods</c> of the culture of Me's town's faction, else of Me's faction. Each carrier found posts the smuggling message (not on the Talk menu's dry run, and once
-    /// per carrier and item per game hour: engine choice).
+    /// <c>illegal goods</c> of the culture of Me's town's faction, else of Me's faction. Each carrier found, in squad order, becomes the conversation's target (<see cref="SetTarget"/>,
+    /// so the last one found stays) and posts the smuggling message (not on the Talk menu's dry run, and once per carrier and item per game hour: engine choice).
     /// </summary>
     bool HasIllegalItem(World world, Conversation c, CharacterId me, CharacterCold mc, CharacterId subject)
     {
@@ -204,6 +204,7 @@ public sealed partial class DialogueSystem
         {
             if (Cold(world, m) is not { Inventory: { } inventory } carrier || inventory.All().FirstOrDefault(i => culture.Illegal.Contains(i.Record)) is not { } item) continue;
             found = true;
+            SetTarget(c, me, m);
             if (c.DryRun || (smugglingPosted.TryGetValue((m, item.Record), out double last) && world.GameHours - last < 1)) continue;
             smugglingPosted[(m, item.Record)] = world.GameHours;
             world.Post(Loc.Tr("{1} has been discovered smuggling {2}", carrier.Name, data.Db.Find(item.Record)?.Name ?? item.Record));
