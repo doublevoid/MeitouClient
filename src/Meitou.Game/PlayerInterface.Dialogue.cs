@@ -38,6 +38,8 @@ sealed partial class PlayerInterface
             conversationEndSent = false;
             CloseContextMenu();
             faithfulScreens.Open("dialogue");
+            // The exe posts it as a player conversation starts (FUN_140684320); only the never-loaded SFX_Bank has the event, so it is silent there and here.
+            Sound("Initiate_Conversation");
             UpdateMenuPause();
         }
         else if (!faithfulScreens.IsOpen("dialogue") && !conversationEndSent)

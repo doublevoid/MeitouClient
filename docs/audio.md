@@ -341,7 +341,8 @@ for unarmed fighting only (not a block or dodge, not a creature's) starts (**Obs
 ### Interface
 
 Every interface sound is an event on the **GUI object, 110**, posted by the handler of its own widget; the exe has no central click hook (**Verified**: all 142 `PostEvent` callers, handler addresses in the table are
-the exe's). Posts are unconditional unless noted. Events that are not in `SFX_General_Bank` (so silent): `Medic`, `Initiate_Conversation`, `gui_notrade`, `gui_noequip`.
+the exe's). Posts are unconditional unless noted. Events that are not in `SFX_General_Bank` (so silent): `Medic`, `Initiate_Conversation`, `gui_notrade`, `gui_noequip`: `Medic` and `Initiate_Conversation`
+are events only in the never-loaded `SFX_Bank`, the other two in no bank (**Observed**: their name hashes looked up among the HIRC event ids of every install bank).
 
 | Event (switch) | When |
 |---|---|
