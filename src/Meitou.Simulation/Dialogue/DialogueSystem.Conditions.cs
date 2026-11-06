@@ -10,8 +10,8 @@ public sealed partial class DialogueSystem
 {
     /// <summary>
     /// One condition (<c>FUN_140676950</c>, docs/game/dialogue.md "Conditions"): <c>who</c> 0 tests the speaker, any other value the target. Yes/no conditions pass when the computed
-    /// answer equals value &gt; 0; counts compare by <c>compare by</c> (Num3: 1 &lt;, 2 &gt;, else ==; Num2: 1 &lt;, else &gt;=). Conditions whose inputs Meitou does not have
-    /// (building locks, town wall locks, strength ratings, head counts, training equipment) compute "no".
+    /// answer equals value &gt; 0; counts compare by <c>compare by</c> (Num3: 1 &lt;, 2 &gt;, else ==; Num2: 1 &lt;, else &gt;=). Every code is computed; DC 23 and 26 are
+    /// the line's bit masks (<see cref="DialogueNode.MemoryRequired"/>, <see cref="DialogueNode.PersonalityRequired"/>), and an unknown code computes "no".
     /// </summary>
     bool Condition(World world, Conversation c, DialogueCondition dc, CharacterId me, CharacterCold mc, CharacterId other)
     {
@@ -33,16 +33,16 @@ public sealed partial class DialogueSystem
         }
         if (dc.Condition >= SimulationExtensions.FirstModCode) return ModCondition(world, me, s is null ? CharacterId.None : subjectId, dc);
         if (dc.Condition == 12) return Num3(world.Research.TechLevel);   // the research manager's tech level (*(*(game + 0x38) + 8), FUN_140676950), whatever the subject
+        if (dc.Condition == 11) return Bool(HomeLockedUp(world, mc));   // the speaker's platoon flag, whatever the subject
         if (s is null)
         {
-            // No player character at all: the faction-level test (FUN_140671530) against the player's faction; everything else passes. Not DC 11 (the speaker's own platoon, not built).
+            // No player character at all: the faction-level test (FUN_140671530) against the player's faction; everything else passes.
             int player = world.Player.Faction;
             return dc.Condition switch
             {
                 1 => Num2(player == mc.Faction ? 100 : relations.Contains(mc.Faction) && relations.Contains(player) ? (int)relations.Get(mc.Faction, player) : 0),
                 2 => Num2(world.Player.Money),
                 3 => Num2((int)relations.GlobalTrust(player)),
-                11 => !b,
                 _ => true,
             };
         }
@@ -118,6 +118,10 @@ public sealed partial class DialogueSystem
             case 57: return Bool(Position(world, subjectId) is { } walled && world.SystemOf<Locks.LockSystem>()?.Regions?.CodeAt(walled) > 0);
             // TOWN_WALLS_LOCKED_UP: S's current town has gates and none of their doors is open (FUN_140929820 behind Town vfunc 0x300); S in no town reads false.
             case 58: return Bool(Position(world, subjectId) is { } inTown && TownAt(inTown) is >= 0 and var walledTown && Locks.LockSystem.TownLockedUp(world, data.Sites[walledTown]));
+            // TOWN_HAS_FORTIFICATIONS_WALLS: S's current town has a gate anywhere (Town slot 97 FUN_140929910); S in no town reads false.
+            case 49:
+                return Bool(Position(world, subjectId) is { } gated && TownAt(gated) is >= 0 and var gatedTown
+                    && Locks.LockSystem.TownHasGates(world, data.Sites[gatedTown]));
             case 59: return Bool(s.SlaveState is 1 or 2);
             case 61: return Bool(s.SlaveState is 1 or 2 && s.SlaveOwner >= 0 && s.SlaveOwner == meF);
             case 62: return Bool(s.SlaveState > 1);
@@ -130,6 +134,10 @@ public sealed partial class DialogueSystem
             case 67: return Bool((s.Orders & CharacterOrders.Sneak) != 0 && !s.InCombat);
             case 68: return Bool(world.Characters.TryResolveNext(subjectId, out int indoors) && world.Sight.BuildingOf(indoors) is not null);
             case 69: return Num2(HasIllegalItem(world, c, me, mc, subjectId) ? 1 : 0);
+            // USING_MY_TRAINING_EQUIPMENT: S trains on a dummy owned by Me's faction (Character +0x158, set while Task_UseTrainingDummy runs).
+            case 70:
+                return Bool(world.Characters.TryResolveNext(subjectId, out int trainee) && TrainingDummyOwner(world, trainee) is >= 0 and var dummyOwner
+                    && dummyOwner == meF);
             case 71: return Bool(s.Medical is { } fed && fed.Hunger < 1.7f);
             case 72:
             {
@@ -183,8 +191,8 @@ public sealed partial class DialogueSystem
 
     /// <summary>
     /// DC_HAS_ILLEGAL_ITEM (<c>FUN_140676950</c>, docs/game/dialogue.md "Conditions"): a member of S's squad that Me perceives (<see cref="Known"/>) carries an item on the
-    /// <c>illegal goods</c> of the culture of Me's town's faction, else of Me's faction. Each carrier found posts the smuggling message (not on the Talk menu's dry run, and once
-    /// per carrier and item per game hour: engine choice).
+    /// <c>illegal goods</c> of the culture of Me's town's faction, else of Me's faction. Each carrier found, in squad order, becomes the conversation's target (<see cref="SetTarget"/>,
+    /// so the last one found stays) and posts the smuggling message (not on the Talk menu's dry run, and once per carrier and item per game hour: engine choice).
     /// </summary>
     bool HasIllegalItem(World world, Conversation c, CharacterId me, CharacterCold mc, CharacterId subject)
     {
@@ -196,12 +204,21 @@ public sealed partial class DialogueSystem
         {
             if (Cold(world, m) is not { Inventory: { } inventory } carrier || inventory.All().FirstOrDefault(i => culture.Illegal.Contains(i.Record)) is not { } item) continue;
             found = true;
+            SetTarget(c, me, m);
             if (c.DryRun || (smugglingPosted.TryGetValue((m, item.Record), out double last) && world.GameHours - last < 1)) continue;
             smugglingPosted[(m, item.Record)] = world.GameHours;
             world.Post(Loc.Tr("{1} has been discovered smuggling {2}", carrier.Name, data.Db.Find(item.Record)?.Name ?? item.Record));
         }
         return found;
     }
+
+    /// <summary>
+    /// DC_BUILDING_IS_CLOSED_AND_SECURED: the speaker's platoon AI <c>+0xe8</c>, the "house locked" flag (<c>homelok</c>, docs/game/locks.md "Doors"): a lock-up round locked its
+    /// squad's home and nothing has unlocked it since (<see cref="Locks.LockSystem.IsHouseLocked"/>).
+    /// </summary>
+    static bool HomeLockedUp(World world, CharacterCold mc) =>
+        world.Squads.Find(mc.SquadId) is { } squad && (squad.Ai?.OwnHome ?? squad.HomeBuilding) is { } home
+        && world.SystemOf<Locks.LockSystem>()?.IsHouseLocked(world, home.Key) == true;
 
     /// <summary>The player's nearest outpost whose radius holds <paramref name="at"/>, or null.</summary>
     Construction.PlayerTown? PlayerTownAt(World world, Vector3 at)

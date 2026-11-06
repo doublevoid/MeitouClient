@@ -136,8 +136,19 @@ public sealed partial class LockSystem
     /// Whether the town's walls are locked up (<c>Town</c> vfunc <c>0x300</c> = <c>FUN_140929820</c>, <b>Verified</b>): the town has at least one gate (a gateway building with a door) and no gate door is
     /// open (door state 1; a broken one counts as open); closed, opening and closing doors all count as locked.
     /// </summary>
-    public static bool TownLockedUp(World world, TownSite site) =>
-        GatesLockedUp(site.Buildings.Where(b => !b.Destroyed).SelectMany(b => world.Fixtures.OfBuilding(b.Key)));
+    public static bool TownLockedUp(World world, TownSite site) => GatesLockedUp(TownFixtures(world, site));
+
+    /// <summary>
+    /// Whether the town has a gate, wherever it is (<c>Town</c> vfunc slot 97 <c>FUN_140929910</c> finds one, DC 49 TOWN_HAS_FORTIFICATIONS_WALLS): the gates
+    /// <see cref="TownLockedUp"/> looks at.
+    /// </summary>
+    public static bool TownHasGates(World world, TownSite site) => TownFixtures(world, site).Any(IsGateDoor);
+
+    /// <summary>The fixtures of the town's standing buildings.</summary>
+    static IEnumerable<Fixture> TownFixtures(World world, TownSite site) =>
+        site.Buildings.Where(b => !b.Destroyed).SelectMany(b => world.Fixtures.OfBuilding(b.Key));
+
+    static bool IsGateDoor(Fixture f) => f.Kind == FixtureKind.Door && f.IsGate;
 
     /// <summary>The rule of <see cref="TownLockedUp"/> over a town's door fixtures: shared with the campaign assault's breach test.</summary>
     public static bool GatesLockedUp(IEnumerable<Fixture> doors)
@@ -145,7 +156,7 @@ public sealed partial class LockSystem
         bool any = false;
         foreach (var gate in doors)
         {
-            if (gate.Kind != FixtureKind.Door || !gate.IsGate) continue;
+            if (!IsGateDoor(gate)) continue;
             if (gate.DoorBroken || gate.Motion == DoorMotion.Open) return false;
             any = true;
         }
